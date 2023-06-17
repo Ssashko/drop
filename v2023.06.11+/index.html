@@ -63,6 +63,18 @@
           <label>Радіус вершин чотирикутника:</label>
           <input id="quadrangle-vertices-radius">
         </div>
+        <div class="setting">
+          <svg width="25" height="25">
+            <g stroke="black">
+              <line x1="12.5" y1="0" x2="12.5" y2="25" stroke-width="5" />
+              <line x1="7" y1="2" x2="18" y2="2" stroke-width="3" />
+              <line x1="8" y1="12.5" x2="17" y2="12.5" stroke-width="2" />
+              <line x1="7" y1="24" x2="18" y2="24" stroke-width="3" />
+            </g>
+          </svg>
+          <label>Довжина осей:</label>
+          <input id="axis-length">
+        </div>
         <button id="update-btn">Оновити</button>
       </div>
       <script src="controls.js"></script>
@@ -70,10 +82,11 @@
   </div>
   <script>
     const initialSettings = {
-      "gridStep": 0.05,
+      "gridStep": 4.6,
       "quadrangleSideWidth": 5,
       "quadrangleVerticesRadius": 9,
-      "lineType": "solid"
+      "lineType": "solid",
+      "axisLength": 20,
     }
     initializeSettings(initialSettings);
     let scene = new Scene(initialSettings);

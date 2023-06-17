@@ -11,7 +11,7 @@ const EPS = 1e-3;
 
 class Scene {
     constructor(settings) {
-        this.viewportSide = Math.min(window.innerWidth, window.innerHeight);
+        this.viewportSide = Math.min(window.innerWidth, window.innerHeight) - 10;
         this.viewportExtends = {
             w: this.viewportSide,
             h: this.viewportSide
@@ -25,6 +25,7 @@ class Scene {
         this.pointCloud.genRandPoints();
         this.quadrangleCut = new QuadrangleCut(this.pointCloud);
 
+        settings["gridStep"] *= 0.01;
         this.settings = settings;
 
         var stage = new Konva.Stage({
@@ -34,6 +35,7 @@ class Scene {
         });
 
         this.setBackgroundGrid(stage);
+        this.setAxes(stage);
         this.setPointCloud(stage);
         this.setQuadrangleCut(stage);
 
@@ -57,16 +59,114 @@ class Scene {
         }
     }
 
+    setAxes(stage) {
+        var layer = new Konva.Layer();
+        let offset = {
+            w: this.viewportExtends.w * 0.04,
+            h: this.viewportExtends.h * 0.04
+        };
+        var verticalAxis = new Konva.Line({
+            points: [
+                this.viewportExtends.w / 2, offset.h,
+                this.viewportExtends.w / 2, this.viewportExtends.h - offset.h
+            ],
+            stroke: Color.black,
+            strokeWidth: 3,
+        });
+        layer.add(verticalAxis);
+        var divisions = {
+            7: [0, 0.5, 1],
+            5: [0.25, 0.75]
+        };
+        var axisLength = this.viewportExtends.h - 2 * offset.h;
+        for (let divisionWidth in divisions) {
+            divisionWidth = Number.parseInt(divisionWidth);
+            for (let position of divisions[divisionWidth]) {
+                let division = new Konva.Line({
+                    points: [
+                        this.viewportExtends.w / 2 - divisionWidth, offset.h + axisLength * position,
+                        this.viewportExtends.w / 2 + divisionWidth, offset.h + axisLength * position
+                    ],
+                    stroke: Color.black,
+                    strokeWidth: divisionWidth,
+                });
+                layer.add(division);
+            }
+        }
+        let fontHeight = Math.round(this.viewportSide * 0.025);
+        let fontWidth = 2.25 * fontHeight;
+        this.topDivisionValue = new Konva.Text({
+            x: (this.viewportExtends.w - fontWidth) / 2,
+            y: (offset.h - fontHeight + 2) / 2,
+            text: `${this.settings["axisLength"]} см`,
+            fontSize: fontHeight,
+            fontFamily: 'Calibri',
+            fill: 'black',
+        });
+        layer.add(this.topDivisionValue);
+
+        var horizontalAxis = new Konva.Line({
+            points: [
+                offset.w, this.viewportExtends.h - offset.h,
+                this.viewportExtends.w - offset.w, this.viewportExtends.h - offset.h
+            ],
+            stroke: Color.black,
+            strokeWidth: 3,
+        });
+        layer.add(horizontalAxis);
+        divisions["5"] = [0.125, 0.375, 0.625, 0.875];
+        for (let divisionHeight in divisions) {
+            divisionHeight = Number.parseInt(divisionHeight);
+            for (let position of divisions[divisionHeight]) {
+                let division = new Konva.Line({
+                    points: [
+                        offset.w + axisLength * position, this.viewportExtends.h - offset.h - divisionHeight,
+                        offset.w + axisLength * position, this.viewportExtends.h - offset.h + divisionHeight,
+                    ],
+                    stroke: Color.black,
+                    strokeWidth: divisionHeight,
+                });
+                layer.add(division);
+            }
+        }
+        var v = Math.round(this.settings["axisLength"] / 2);
+        this.rightDivisionValue = new Konva.Text({
+            x: this.viewportExtends.w - offset.w - fontWidth / 2,
+            y: this.viewportExtends.h - offset.h - fontHeight - 5,
+            text: `${v} см`,
+            fontSize: fontHeight,
+            fontFamily: 'Calibri',
+            fill: 'black',
+        });
+        layer.add(this.rightDivisionValue);
+        this.leftDivisionValue = this.rightDivisionValue.clone();
+        this.leftDivisionValue.x(offset.w - fontWidth / 2);
+        layer.add(this.leftDivisionValue);
+        stage.add(layer);
+    }
+
     generateBackgroundGrid(step_unit) {
-        for (let step = step_unit / 2; step <= 1; step += step_unit) {
+        for (let step = 0.5; step >= 0; step = step - step_unit) {
             var gridLine = new Konva.Line({
-                points: [0, step * this.viewportSide, this.viewportSide, step * this.viewportSide],
+                points: [0, step * this.viewportExtends.h, this.viewportExtends.w, step * this.viewportExtends.h],
                 stroke: Color.grey,
                 strokeWidth: 1,
             });
             this.backgroundGridLayer.add(gridLine);
             var gridLine = new Konva.Line({
-                points: [step * this.viewportSide, 0, step * this.viewportSide, this.viewportSide],
+                points: [0, (1 - step) * this.viewportExtends.h, this.viewportExtends.w, (1 - step) * this.viewportExtends.h],
+                stroke: Color.grey,
+                strokeWidth: 1,
+            });
+            this.backgroundGridLayer.add(gridLine);
+            var gridLine = new Konva.Line({
+                points: [step * this.viewportExtends.w, 0, step * this.viewportExtends.w, this.viewportExtends.h],
+                stroke: Color.grey,
+                strokeWidth: 1,
+            });
+            this.backgroundGridLayer.add(gridLine);
+            var gridLine = new Konva.Line({
+                points: [(1 - step) * this.viewportExtends.w, 0, (1 - step) * this.viewportExtends.w, this.viewportExtends.h],
                 stroke: Color.grey,
                 strokeWidth: 1,
             });
@@ -90,7 +190,6 @@ class Scene {
 
         this.backgroundGridLayer = new Konva.Layer();
         this.generateBackgroundGrid(this.settings["gridStep"]);
-        this.setAxes(stage);
         stage.add(this.backgroundGridLayer);
     }
 
@@ -184,10 +283,10 @@ class Scene {
         this.updateQuadrangleLines(lineColor);
     }
 
-    updateBackgroundGrid(stepUnit) {
+    updateBackgroundGrid() {
         for (let line of this.backgroundGridLayer.find('Line'))
             line.destroy();
-        this.generateBackgroundGrid(stepUnit)
+        this.generateBackgroundGrid(this.settings["gridStep"])
         this.backgroundGridLayer.draw();
     }
 
@@ -229,5 +328,12 @@ class Scene {
             x: ratio.w * vertex.x,
             y: ratio.h * vertex.y
         }
+    }
+
+    updateAxisLength() {
+        this.topDivisionValue.text(`${this.settings["axisLength"]} см`);
+        var v = Math.round(this.settings["axisLength"] / 2);
+        this.rightDivisionValue.text(`${v} см`);
+        this.leftDivisionValue.text(`${v} см`);
     }
 }

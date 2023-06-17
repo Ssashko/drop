@@ -64,7 +64,7 @@ body {
 
 .setting {
   display: grid;
-  grid-template-columns: 35px 160px 50px;
+  grid-template-columns: 35px 225px 50px;
   align-items: center;
 }
 
