@@ -8,6 +8,7 @@
   <title>Document</title>
   <script src="lib.js"></script>
   <script src="scene.js"></script>
+  <script src="editingPointsCloudMode.js"></script>
   <script src="https://unpkg.com/konva@9/konva.min.js"></script>
   <link href="style.css" rel="stylesheet">
 </head>
@@ -75,8 +76,10 @@
           <label>Довжина осей:</label>
           <input id="axis-length">
         </div>
-        <button id="update-btn">Оновити</button>
+        <button id="toggle-editing-points-mode-btn" class="settings-btn">Ввімкнути режим редагування точок</button>
+        <button id="update-btn" class="settings-btn">Оновити</button>
       </div>
+      <img id="trash-can-icon" src="trash-can.svg">
       <script src="controls.js"></script>
     </div>
   </div>
@@ -90,7 +93,15 @@
     }
     initializeSettings(initialSettings);
     let scene = new Scene(initialSettings);
+    let editor = new Editor(scene);
     document.getElementById("update-btn").addEventListener("click", () => updateSettings(scene));
+    document.getElementById("toggle-editing-points-mode-btn")
+      .addEventListener("click", (e) => {
+        const name = "режим редагування точок"
+        let currentMode = editor.toggle(e);
+        e.currentTarget.innerText = currentMode == Editor.Modes.Enabled ?
+          "Вимкнути " + name : "Ввімкнути " + name;
+      });
   </script>
 </body>
 

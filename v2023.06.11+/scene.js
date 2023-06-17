@@ -76,7 +76,7 @@ class Scene {
         layer.add(verticalAxis);
         var divisions = {
             7: [0, 0.5, 1],
-            5: [0.25, 0.75]
+            5: [0.125, 0.250, 0.375, 0.625, 0.750, 0.875]
         };
         var axisLength = this.viewportExtends.h - 2 * offset.h;
         for (let divisionWidth in divisions) {
@@ -114,7 +114,6 @@ class Scene {
             strokeWidth: 3,
         });
         layer.add(horizontalAxis);
-        divisions["5"] = [0.125, 0.375, 0.625, 0.875];
         for (let divisionHeight in divisions) {
             divisionHeight = Number.parseInt(divisionHeight);
             for (let position of divisions[divisionHeight]) {
@@ -194,7 +193,7 @@ class Scene {
     }
 
     setPointCloud(stage) {
-        var layer = new Konva.Layer();
+        this.pointsCloudLayer = new Konva.Layer();
         this.pointsCloudRepresentation = [];
         this.pointCloud.getPoints().forEach(vertex => {
             let viewportPoint = this.normalCoordinateToViewport(vertex);
@@ -206,10 +205,10 @@ class Scene {
                 stroke: 'black',
                 strokeWidth: 1,
             });
-            layer.add(circle);
+            this.pointsCloudLayer.add(circle);
             this.pointsCloudRepresentation.push(circle);
         });
-        stage.add(layer);
+        stage.add(this.pointsCloudLayer);
     }
 
     setQuadrangleCut(stage) {

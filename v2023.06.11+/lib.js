@@ -91,11 +91,13 @@ class PointCloud {
     getPoints() {
         return this._points;
     }
+
     genRandPoints() {
         const count = Math.ceil(Math.random() * 7) + 2;
         for (let i = 0; i < count; i++)
             this._points.push(this.genRandPoint());
     }
+
     genRandPoint() {
         return {
             x: Math.random() / 2 + 0.25,
@@ -103,6 +105,13 @@ class PointCloud {
         }
     }
 
+    add(normalCoords) {
+        this._points.push(normalCoords);
+    }
+
+    remove(index) {
+        this._points.splice(index, 1);
+    }
 }
 
 class QuadrangleCut {

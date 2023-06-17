@@ -1,3 +1,9 @@
+function hideSettingsMenu(e) {
+  document.getElementById("settings").style.display = "none";
+}
+document.getElementById("viewport").addEventListener("click", hideSettingsMenu);
+document.getElementById("viewport").addEventListener("touchstart", hideSettingsMenu);
+
 function showSettingsMenu(e) {
   let settingsMenu = document.getElementById("settings");
   if (settingsMenu.style.display == "none") {
@@ -69,8 +75,6 @@ function changeCurrIcon(e) {
   tmp = currIcon.getAttribute("value");
   currIcon.setAttribute("value", listItem.getAttribute("value"));
   listItem.setAttribute("value", tmp);
-
-
 }
 
 document.getElementById("line-type").addEventListener("click", toggleDropdownIconList);
