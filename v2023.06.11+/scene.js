@@ -38,8 +38,11 @@ class Scene {
         this.setAxes(stage);
         this.setPointCloud(stage);
         this.setQuadrangleCut(stage);
+        this.anglesLayer = new Konva.Layer();
+        this.shownAngles = [];
+        this.setQuadrangleCutAngles(stage);
 
-        this.target = null;
+        this.target = null;;
     }
 
     updateViewportSize() {
@@ -280,6 +283,7 @@ class Scene {
         let lineColor = this.quadrangleCut.checkPointsIncluded(this.pointCloud)
             && !this.quadrangleCut.hasSelfIntersection() ? Color.green : Color.red;
         this.updateQuadrangleLines(lineColor);
+        this.updateAngles();
     }
 
     updateBackgroundGrid() {
@@ -334,5 +338,145 @@ class Scene {
         var v = Math.round(this.settings["axisLength"] / 2);
         this.rightDivisionValue.text(`${v} см`);
         this.leftDivisionValue.text(`${v} см`);
+    }
+
+    setQuadrangleCutAngles(stage) {
+        const vertices = this.quadrangleCut.getVertices();
+        for (let i = vertices.length; i < 2 * vertices.length; i++) {
+            const anglePoints = [];
+            for (let j = 0; j < 3; j++) {
+                anglePoints.push(vertices[(i - 1 + j) % vertices.length]);
+            }
+            this.setAngle(anglePoints[0], anglePoints[1], anglePoints[2]);
+        }
+        stage.add(this.anglesLayer);
+    }
+
+    setAngle(a, b, c) {
+        const angle = new ViewportAngle(a, b, c);
+        let sectorParams = angle.getWedgeParams();
+        const sectorCenter = this.normalCoordinateToViewport({
+            x: sectorParams.x,
+            y: sectorParams.y
+        });
+        sectorParams.x = sectorCenter.x;
+        sectorParams.y = sectorCenter.y;
+        const sector = new Konva.Wedge(sectorParams);
+        const angleTextParams = angle.getTextParams()
+        const viewportAnchor = this.normalCoordinateToViewport({
+            x: angleTextParams.x,
+            y: angleTextParams.y
+        });
+        angleTextParams.x = viewportAnchor.x;
+        angleTextParams.y = viewportAnchor.y;
+        const text = new Konva.Text(angleTextParams);
+        this.anglesLayer.add(sector, text);
+        this.shownAngles.push({
+            sector: sector,
+            text: text
+        });
+    }
+
+    updateAngles() {
+        const vertices = this.quadrangleCut.getVertices();
+        const start = vertices.length + this.target - 1;
+        for (let i = start; i < start + 3; i++) {
+            this.updateAngle(vertices, i);
+        }
+    }
+
+    updateAngle(vertices, index) {
+        const angle = new ViewportAngle(
+            vertices[(index - 1) % vertices.length],
+            vertices[(index) % vertices.length],
+            vertices[(index + 1) % vertices.length]
+        );
+
+        let sectorParams = angle.getWedgeParams();
+        const sectorCenter = this.normalCoordinateToViewport({
+            x: sectorParams.x,
+            y: sectorParams.y
+        });
+        let sector = this.shownAngles[index % vertices.length].sector;
+        sector.x(sectorCenter.x);
+        sector.y(sectorCenter.y);
+        sector.angle(sectorParams.angle);
+        sector.rotation(sectorParams.rotation);
+        sector.draw();
+
+
+        const angleTextParams = angle.getTextParams()
+        const viewportAnchor = this.normalCoordinateToViewport({
+            x: angleTextParams.x,
+            y: angleTextParams.y
+        });
+        let text = this.shownAngles[index % vertices.length].text;
+        text.x(viewportAnchor.x);
+        text.y(viewportAnchor.y);
+        text.text(angleTextParams.text);
+    }
+}
+
+class ViewportAngle {
+    constructor(a, b, c) {
+        this.centerX = b.x;
+        this.centerY = b.y;
+        this.radius = 25;
+
+        const vectorBA = { x: a.x - b.x, y: a.y - b.y };
+        const vectorBC = { x: c.x - b.x, y: c.y - b.y };
+        const dotProduct = vectorBA.x * vectorBC.x + vectorBA.y * vectorBC.y;
+        const magnitudeBA = Math.sqrt(vectorBA.x * vectorBA.x + vectorBA.y * vectorBA.y);
+        const magnitudeBC = Math.sqrt(vectorBC.x * vectorBC.x + vectorBC.y * vectorBC.y);
+        const angleInRadians = Math.acos(dotProduct / (magnitudeBA * magnitudeBC));
+        this.angle = (angleInRadians * 180) / Math.PI;
+
+        const angleInRadians2 = Math.atan2(vectorBA.y, vectorBA.x);
+        this.rotation = (angleInRadians2 * 180) / Math.PI;
+
+        const newDot1 = this.getPointOnLine(b.x, b.y, a.x, a.y, 0.075);
+        const newDot2 = this.getPointOnLine(b.x, b.y, c.x, c.y, 0.075);
+        this.textAnchor = {
+            x: (newDot1.x + newDot2.x) / 2,
+            y: (newDot1.y + newDot2.y) / 2
+        };
+    }
+
+    getPointOnLine(lineStartX, lineStartY, lineEndX, lineEndY, distance) {
+        const directionVectorX = lineEndX - lineStartX;
+        const directionVectorY = lineEndY - lineStartY;
+        const directionVectorLength = Math.sqrt(directionVectorX * directionVectorX + directionVectorY * directionVectorY);
+        const normalizedDirectionVectorX = directionVectorX / directionVectorLength;
+        const normalizedDirectionVectorY = directionVectorY / directionVectorLength;
+        const displacementVectorX = normalizedDirectionVectorX * distance;
+        const displacementVectorY = normalizedDirectionVectorY * distance;
+        const pointX = lineStartX + displacementVectorX;
+        const pointY = lineStartY + displacementVectorY;
+        return { x: pointX, y: pointY };
+    }
+
+    getWedgeParams() {
+        return {
+            x: this.centerX,
+            y: this.centerY,
+            radius: this.radius,
+            angle: this.angle,
+            rotation: this.rotation,
+            fill: 'blue',
+            stroke: 'black',
+            strokeWidth: 1,
+            opacity: 0.15,
+        }
+    }
+
+    getTextParams() {
+        return {
+            x: this.textAnchor.x,
+            y: this.textAnchor.y,
+            text: `${this.angle.toFixed(1)}°`,
+            fontSize: 14,
+            fontFamily: 'Arial',
+            fill: 'black',
+        }
     }
 }
