@@ -1,9 +1,3 @@
-function hideSettingsMenu(e) {
-  document.getElementById("settings").style.display = "none";
-}
-document.getElementById("viewport").addEventListener("click", hideSettingsMenu);
-document.getElementById("viewport").addEventListener("touchstart", hideSettingsMenu);
-
 function showSettingsMenu(e) {
   let settingsMenu = document.getElementById("settings");
   if (settingsMenu.style.display == "none") {
@@ -24,32 +18,24 @@ function initializeSettings(settings) {
   document.getElementById("grid-step").value = settings["gridStep"];
   document.getElementById("quadrangle-side-width").value = settings["quadrangleSideWidth"];
   document.getElementById("quadrangle-vertices-radius").value = settings["quadrangleVerticesRadius"];
-  document.getElementById("axis-length").value = settings["axisLength"];
 }
 
-function updateSettings(scene) {
+function updateSettings(renderer) {
   let gridStep = parseFloat(document.getElementById("grid-step").value);
   if (gridStep != null) {
-    scene.settings["gridStep"] = gridStep * 0.01;
-    scene.updateBackgroundGrid();
+    renderer.settings["gridStep"] = gridStep;
   }
-  scene.settings["lineType"] = document.getElementById("line-type")
-    .getElementsByClassName("current-icon")[0].getAttribute("value");
   let quadrangleSideWidth = parseFloat(document.getElementById("quadrangle-side-width").value);
   if (quadrangleSideWidth != null) {
-    scene.settings["quadrangleSideWidth"] = quadrangleSideWidth;
+    renderer.settings["quadrangleSideWidth"] = quadrangleSideWidth;
   }
-  scene.updateQuadrangleLines();
   let quadrangleVerticesRadius = parseFloat(document.getElementById("quadrangle-vertices-radius").value);
   if (quadrangleVerticesRadius != null) {
-    scene.settings["quadrangleVerticesRadius"] = quadrangleVerticesRadius;
-    scene.updateQuadrangleVerticesRadius(quadrangleVerticesRadius);
+    renderer.settings["quadrangleVerticesRadius"] = quadrangleVerticesRadius;
   }
-  let axisLength = parseInt(document.getElementById("axis-length").value);
-  if (axisLength != null) {
-    scene.settings["axisLength"] = axisLength;
-    scene.updateAxisLength();
-  }
+  renderer.settings["lineType"] = document.getElementById("line-type")
+    .getElementsByClassName("current-icon")[0].getAttribute("value");
+  renderer.render();
 }
 
 function toggleDropdownIconList(e) {
@@ -75,6 +61,8 @@ function changeCurrIcon(e) {
   tmp = currIcon.getAttribute("value");
   currIcon.setAttribute("value", listItem.getAttribute("value"));
   listItem.setAttribute("value", tmp);
+
+
 }
 
 document.getElementById("line-type").addEventListener("click", toggleDropdownIconList);

@@ -18,10 +18,10 @@ body {
   border: solid 1px black;
 }
 
-#settings-icon,
-#trash-can-icon {
+#settings-icon {
+  right: 10px;
+  top: 10px;
   position: absolute;
-  top: 15px;
   width: 50px;
   height: 50px;
   background-color: whitesmoke;
@@ -30,26 +30,10 @@ body {
   border: 1px solid black;
 }
 
-#settings-icon {
-  right: 10px;
-}
-
-#trash-can-icon {
-  left: 10px;
-  height: 45px;
-  padding-bottom: 10px;
-
-  display: none;
-}
-
-#trash-can-icon:hover {
-  filter: brightness(1.2);
-}
-
 #settings {
   position: absolute;
   right: 10px;
-  top: 70px;
+  top: 65px;
 
   margin-top: 15px;
   padding: 10px;
@@ -80,11 +64,11 @@ body {
 
 .setting {
   display: grid;
-  grid-template-columns: 35px 225px 50px;
+  grid-template-columns: 35px 160px 50px;
   align-items: center;
 }
 
-.settings-btn {
+#update-btn {
   width: fit-content;
 }
 
@@ -121,8 +105,4 @@ body {
   width: 5px;
   font-size: 0.75rem;
   margin-left: -3px;
-}
-
-.crosshair-cursor:hover {
-  cursor: crosshair;
 }
