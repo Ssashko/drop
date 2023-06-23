@@ -7,7 +7,27 @@ const Color = {
     white: "#ffffff",
     black: "#000",
 };
+
 const EPS = 1e-3;
+
+function translate(point, vector) {
+    return { x: point.x + vector.x, y: point.y + vector.y };
+}
+
+function normalize(vector) {
+    const vectorLength = Math.sqrt(vector.x * vector.x + vector.y * vector.y);
+    return vectorLength > EPS ? { x: vector.x / vectorLength, y: vector.y / vectorLength } : null;
+}
+
+function rotate(point, anchor, angleRad) {
+    const translation = { x: -anchor.x, y: -anchor.y };
+    let resultPoint = translate(point, translation);
+    resultPoint = {
+        x: resultPoint.x * Math.cos(angleRad) - resultPoint.y * Math.sin(angleRad),
+        y: resultPoint.x * Math.sin(angleRad) + resultPoint.y * Math.cos(angleRad)
+    };
+    return translate(resultPoint, { x: -translation.x, y: -translation.y });
+}
 
 class Scene {
     constructor(settings) {
@@ -39,9 +59,9 @@ class Scene {
         this.setAxes(stage);
         this.anglesLayer = new Konva.Layer();
         this.shownAngles = [];
+        this.setPointCloud(stage);
         this.setQuadrangleCutAngles(stage);
         this.setQuadrangleCut(stage);
-        this.setPointCloud(stage);
 
         this.target = null;;
     }
@@ -393,6 +413,7 @@ class Scene {
     setAngle(a, b, c) {
         const angle = new ViewportAngle(a, b, c);
         let sectorParams = angle.getWedgeParams();
+        sectorParams.radius *= this.viewportSide;
         const sectorCenter = this.normalCoordinateToViewport({
             x: sectorParams.x,
             y: sectorParams.y
@@ -433,6 +454,7 @@ class Scene {
         );
 
         let sectorParams = angle.getWedgeParams();
+        sectorParams.radius *= this.viewportSide;
         const sectorCenter = this.normalCoordinateToViewport({
             x: sectorParams.x,
             y: sectorParams.y
@@ -484,25 +506,23 @@ class ViewportAngle {
     constructor(a, b, c) {
         this.centerX = b.x;
         this.centerY = b.y;
-        this.radius = 25;
+        this.radius = 0.05;
 
         const vectorBA = { x: a.x - b.x, y: a.y - b.y };
         const vectorBC = { x: c.x - b.x, y: c.y - b.y };
         const dotProduct = vectorBA.x * vectorBC.x + vectorBA.y * vectorBC.y;
-        const magnitudeBA = Math.sqrt(vectorBA.x * vectorBA.x + vectorBA.y * vectorBA.y);
-        const magnitudeBC = Math.sqrt(vectorBC.x * vectorBC.x + vectorBC.y * vectorBC.y);
-        const angleInRadians = Math.acos(dotProduct / (magnitudeBA * magnitudeBC));
+        const determinant = vectorBA.x * vectorBC.y - vectorBA.y * vectorBC.x;
+        let angleInRadians = Math.atan2(determinant, dotProduct);
+        angleInRadians = angleInRadians > 0 ? angleInRadians : Math.PI * 2 + angleInRadians;
         this.angle = (angleInRadians * 180) / Math.PI;
 
         const angleInRadians2 = Math.atan2(vectorBA.y, vectorBA.x);
         this.rotation = (angleInRadians2 * 180) / Math.PI;
 
-        const newDot1 = this.getPointOnLine(b.x, b.y, a.x, a.y, 0.075);
-        const newDot2 = this.getPointOnLine(b.x, b.y, c.x, c.y, 0.075);
-        this.textAnchor = {
-            x: (newDot1.x + newDot2.x) / 2,
-            y: (newDot1.y + newDot2.y) / 2
-        };
+        let translation = normalize({ x: c.x - b.x, y: c.y - b.y });
+        translation = { x: translation.x * this.radius, y: translation.y * this.radius };
+        this.textAnchor = translate(b, translation);
+        this.textAnchor = rotate(this.textAnchor, b, -angleInRadians / 2);
     }
 
     getPointOnLine(lineStartX, lineStartY, lineEndX, lineEndY, distance) {
@@ -536,8 +556,11 @@ class ViewportAngle {
         return {
             x: this.textAnchor.x,
             y: this.textAnchor.y,
+            offsetX: 10,
+            offsetY: 5,
             text: `${this.angle.toFixed(1)}°`,
             fontSize: 14,
+            fontStyle: 'bold',
             fontFamily: 'Arial',
             fill: 'black',
         }
