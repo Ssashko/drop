@@ -16,7 +16,7 @@
 <body>
   <div id="viewport-aligner">
     <div id="viewport-wrapper">
-      <div id="viewport"></div>
+      <div id="viewport" class="crosshair-cursor"></div>
       <img id="settings-icon" src="settings-icon.svg">
       <div id="settings">
         <div class="setting">
@@ -76,8 +76,18 @@
           <label>Довжина осей:</label>
           <input id="axis-length">
         </div>
-        <button id="toggle-editing-points-mode-btn" class="settings-btn">Ввімкнути режим редагування точок</button>
-        <button id="update-btn" class="settings-btn">Оновити</button>
+        <div class="setting">
+          <img src="protractor-icon.svg" width="25">
+          <label>
+            Відображення довжин та<br>
+            градусних мір кутів
+          </label>
+          <input id="show-metrics" type="checkbox" checked>
+        </div>
+        <button id="update-btn" class="settings-btn">Застосувати налаштування</button>
+        <button id="toggle-editing-points-mode-btn" class="settings-btn">Вимкнути режим редагування точок</button>
+        <!-- <button id="build-min-rhombus" class="settings-btn">Побудувати мінімальний ромб</button>
+        <button id="build-min-quadrangle" class="settings-btn">Побудувати мінімальний чотирикутник</button> -->
       </div>
       <img id="trash-can-icon" src="trash-can.svg">
       <script src="controls.js"></script>
@@ -90,6 +100,7 @@
       "quadrangleVerticesRadius": 9,
       "lineType": "solid",
       "axisLength": 20,
+      "areMetricsShown": true
     }
     initializeSettings(initialSettings);
     let scene = new Scene(initialSettings);

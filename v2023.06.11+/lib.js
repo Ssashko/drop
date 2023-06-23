@@ -92,6 +92,10 @@ class PointCloud {
         return this._points;
     }
 
+    setPoints(points) {
+        this._points = points;
+    }
+
     genRandPoints() {
         const count = Math.ceil(Math.random() * 7) + 2;
         for (let i = 0; i < count; i++)

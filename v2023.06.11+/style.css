@@ -39,7 +39,7 @@ body {
   height: 45px;
   padding-bottom: 10px;
 
-  display: none;
+  /* display: none; */
 }
 
 #trash-can-icon:hover {

@@ -25,6 +25,7 @@ function initializeSettings(settings) {
   document.getElementById("quadrangle-side-width").value = settings["quadrangleSideWidth"];
   document.getElementById("quadrangle-vertices-radius").value = settings["quadrangleVerticesRadius"];
   document.getElementById("axis-length").value = settings["axisLength"];
+  document.getElementById("show-metrics").checked = settings["areMetricsShown"];
 }
 
 function updateSettings(scene) {
@@ -50,6 +51,8 @@ function updateSettings(scene) {
     scene.settings["axisLength"] = axisLength;
     scene.updateAxisLength();
   }
+  scene.settings["areMetricsShown"] = document.getElementById("show-metrics").checked;
+  scene.updateMetricsView(editor.currentState);
 }
 
 function toggleDropdownIconList(e) {

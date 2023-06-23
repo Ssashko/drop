@@ -5,7 +5,7 @@ class Editor {
   }
 
   constructor(scene) {
-    this.currentState = Editor.Modes.Disabled;
+    this.currentState = Editor.Modes.Enabled;
     this.scene = scene;
     this.target = null;
 
@@ -21,6 +21,7 @@ class Editor {
   bindCloudPoints() {
     for (let point of this.scene.pointsCloudRepresentation) {
       point.on("mousedown touchstart", (e) => this.onExistingPointClickTouch(e));
+      point.draw();
     }
   }
 
@@ -35,7 +36,9 @@ class Editor {
     else {
       document.getElementById("trash-can-icon").style.display = "none";
       this.clearBinds();
+      this.scene.updatePointsCloud();
     }
+    this.scene.onPointsCloudEditingModeToggling(this.currentState);
     return this.currentState;
   }
 

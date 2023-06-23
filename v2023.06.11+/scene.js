@@ -11,6 +11,9 @@ const EPS = 1e-3;
 
 class Scene {
     constructor(settings) {
+        settings["gridStep"] *= 0.01;
+        this.settings = settings;
+
         this.viewportSide = Math.min(window.innerWidth, window.innerHeight) - 10;
         this.viewportExtends = {
             w: this.viewportSide,
@@ -24,9 +27,7 @@ class Scene {
         this.pointCloud = new PointCloud();
         this.pointCloud.genRandPoints();
         this.quadrangleCut = new QuadrangleCut(this.pointCloud);
-
-        settings["gridStep"] *= 0.01;
-        this.settings = settings;
+        // this.quadrangleCut = MinimumCircumscribeCut();
 
         var stage = new Konva.Stage({
             container: 'viewport',
@@ -36,11 +37,11 @@ class Scene {
 
         this.setBackgroundGrid(stage);
         this.setAxes(stage);
-        this.setPointCloud(stage);
-        this.setQuadrangleCut(stage);
         this.anglesLayer = new Konva.Layer();
         this.shownAngles = [];
         this.setQuadrangleCutAngles(stage);
+        this.setQuadrangleCut(stage);
+        this.setPointCloud(stage);
 
         this.target = null;;
     }
@@ -207,6 +208,7 @@ class Scene {
                 fill: Color.blue,
                 stroke: 'black',
                 strokeWidth: 1,
+                draggable: true,
             });
             this.pointsCloudLayer.add(circle);
             this.pointsCloudRepresentation.push(circle);
@@ -235,6 +237,7 @@ class Scene {
                 // lineJoin: 'round',
                 stroke: Color.green,
                 strokeWidth: this.settings["quadrangleSideWidth"],
+                visible: false
             });
             this.quadrangleCutRepresentation.lines.push(quadrangleSide);
             layer.add(quadrangleSide);
@@ -250,6 +253,7 @@ class Scene {
                 stroke: 'black',
                 strokeWidth: 1,
                 draggable: true,
+                visible: false
             });
             circle.on("dragstart", () => this.setTarget(i));
             circle.on("dragmove", (e) => this.onVertexMove(e));
@@ -279,7 +283,7 @@ class Scene {
         secondLine.points([targetCircle.x(), targetCircle.y(), points[2], points[3]]);
         secondLine.draw();
 
-        this.updateQuadrangleCut();
+        this.updateQuadrangleCut(false);
         let lineColor = this.quadrangleCut.checkPointsIncluded(this.pointCloud)
             && !this.quadrangleCut.hasSelfIntersection() ? Color.green : Color.red;
         this.updateQuadrangleLines(lineColor);
@@ -314,7 +318,41 @@ class Scene {
         }
     }
 
-    updateQuadrangleCut() {
+    updateQuadrangleCut(buildNewQuadrangleCut, isPointsCloudEditingModeEnabled) {
+        if (buildNewQuadrangleCut) {
+            // TODO: build quadrangleCut
+            this.quadrangleCut = new QuadrangleCut(this.pointCloud);    // temporary represents the building of a quadrangleCut            
+            let vertices = this.quadrangleCut.getVertices().map(vertex => this.normalCoordinateToViewport(vertex));
+
+            for (let i = 0; i < vertices.length; i++) {
+                const viewportCircle = this.quadrangleCutRepresentation.vertices[i];
+                viewportCircle.x(vertices[i].x);
+                viewportCircle.y(vertices[i].y);
+                viewportCircle.draw();
+            }
+
+            for (let i = vertices.length - 1; i < 2 * vertices.length - 1; i++) {
+                var startVertex = vertices[i % vertices.length];
+                var endVertex = vertices[(i + 1) % vertices.length];
+                var line = this.quadrangleCutRepresentation.lines[(i + 1) % vertices.length];
+                line.points([
+                    startVertex.x, startVertex.y,
+                    endVertex.x, endVertex.y
+                ]);
+                line.draw();
+            }
+        }
+
+        if (isPointsCloudEditingModeEnabled != null) {
+            for (let i = 0; i < this.quadrangleCutRepresentation.vertices.length; i++) {
+                this.quadrangleCutRepresentation.vertices[i].visible(!isPointsCloudEditingModeEnabled);
+                this.quadrangleCutRepresentation.lines[i].visible(!isPointsCloudEditingModeEnabled);
+            }
+        }
+
+        if (this.target == null)
+            return;
+
         let viewportVertex = this.quadrangleCutRepresentation.vertices[this.target];
         viewportVertex = this.viewportCoordinateToNormal(
             { "x": viewportVertex.x(), "y": viewportVertex.y() }
@@ -361,14 +399,16 @@ class Scene {
         });
         sectorParams.x = sectorCenter.x;
         sectorParams.y = sectorCenter.y;
+        sectorParams.visible = false;
         const sector = new Konva.Wedge(sectorParams);
-        const angleTextParams = angle.getTextParams()
+        const angleTextParams = angle.getTextParams();
         const viewportAnchor = this.normalCoordinateToViewport({
             x: angleTextParams.x,
             y: angleTextParams.y
         });
         angleTextParams.x = viewportAnchor.x;
         angleTextParams.y = viewportAnchor.y;
+        angleTextParams.visible = false;
         const text = new Konva.Text(angleTextParams);
         this.anglesLayer.add(sector, text);
         this.shownAngles.push({
@@ -377,15 +417,15 @@ class Scene {
         });
     }
 
-    updateAngles() {
+    updateAngles(isPointsCloudEditingModeEnabled) {
         const vertices = this.quadrangleCut.getVertices();
         const start = vertices.length + this.target - 1;
-        for (let i = start; i < start + 3; i++) {
-            this.updateAngle(vertices, i);
+        for (let i = start; i < start + vertices.length; i++) {
+            this.updateAngle(vertices, i, isPointsCloudEditingModeEnabled);
         }
     }
 
-    updateAngle(vertices, index) {
+    updateAngle(vertices, index, isPointsCloudEditingModeEnabled) {
         const angle = new ViewportAngle(
             vertices[(index - 1) % vertices.length],
             vertices[(index) % vertices.length],
@@ -402,8 +442,8 @@ class Scene {
         sector.y(sectorCenter.y);
         sector.angle(sectorParams.angle);
         sector.rotation(sectorParams.rotation);
+        sector.visible(this.settings["areMetricsShown"] && !isPointsCloudEditingModeEnabled);
         sector.draw();
-
 
         const angleTextParams = angle.getTextParams()
         const viewportAnchor = this.normalCoordinateToViewport({
@@ -414,6 +454,29 @@ class Scene {
         text.x(viewportAnchor.x);
         text.y(viewportAnchor.y);
         text.text(angleTextParams.text);
+        text.visible(this.settings["areMetricsShown"] && !isPointsCloudEditingModeEnabled);
+        text.draw();
+    }
+
+    updateMetricsView(isPointsCloudEditingModeEnabled) {
+        this.updateAngles(isPointsCloudEditingModeEnabled);
+    }
+
+    onPointsCloudEditingModeToggling(isPointsCloudEditingModeEnabled) {
+        this.updateQuadrangleCut(!isPointsCloudEditingModeEnabled, isPointsCloudEditingModeEnabled);
+        this.updateMetricsView(isPointsCloudEditingModeEnabled);
+    }
+
+    updatePointsCloud() {
+        let newPoints = [];
+        for (let point of this.pointsCloudRepresentation) {
+            let normalCoords = this.viewportCoordinateToNormal({
+                x: point.x(),
+                y: point.y()
+            });
+            newPoints.push(normalCoords);
+        }
+        this.pointCloud.setPoints(newPoints);
     }
 }
 
