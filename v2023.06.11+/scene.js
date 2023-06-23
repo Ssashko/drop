@@ -85,9 +85,10 @@ class Scene {
 
     setAxes(stage) {
         var layer = new Konva.Layer();
+        this.axisNormalOffset = 0.04;
         let offset = {
-            w: this.viewportExtends.w * 0.04,
-            h: this.viewportExtends.h * 0.04
+            w: this.viewportExtends.w * this.axisNormalOffset,
+            h: this.viewportExtends.h * this.axisNormalOffset,
         };
         var verticalAxis = new Konva.Line({
             points: [
@@ -216,12 +217,54 @@ class Scene {
         stage.add(this.backgroundGridLayer);
     }
 
+    distancesTextAnchor(viewportPoint) {
+        const textView = {
+            "largeNormalOffset": 0.01,
+            "tinyNormalOffset": 0.005,
+            "textAvgViewportWidth": 40,
+            "textAvgViewportHeight": 10,
+        };
+        return {
+            'vertical': {
+                x: viewportPoint.x + this.viewportExtends.w * textView.tinyNormalOffset,
+                y: viewportPoint.y + (this.axisData.horizontalY - viewportPoint.y - textView.textAvgViewportHeight) / 2,
+            },
+            'horizontal': {
+                x: viewportPoint.x + (this.axisData.verticalX - viewportPoint.x - textView.textAvgViewportWidth) / 2,
+                y: viewportPoint.y + this.viewportExtends.h * textView.tinyNormalOffset,
+            }
+        }
+    }
+
     setPointCloud(stage) {
         this.pointsCloudLayer = new Konva.Layer();
+        this.axisData = {
+            "horizontalY": (this.normalExtends.h - this.axisNormalOffset) * this.viewportExtends.h,
+            "verticalX": this.viewportExtends.w / 2,
+            "viewportLength": this.viewportSide * (1 - 2 * this.axisNormalOffset),
+        };
+        this.distanceCoef = this.settings["axisLength"] / this.axisData.viewportLength;
         this.pointsCloudRepresentation = [];
         this.pointCloud.getPoints().forEach(vertex => {
             let viewportPoint = this.normalCoordinateToViewport(vertex);
-            var circle = new Konva.Circle({
+            const item = this.buildPointsCloudRepresentationItem(viewportPoint);
+            this.pointsCloudLayer.add(
+                item.verticalDistance.line, item.verticalDistance.text,
+                item.horizontalDistance.line, item.horizontalDistance.text,
+            );
+            this.pointsCloudRepresentation.push(item);
+        });
+        for (let item of this.pointsCloudRepresentation) {
+            this.pointsCloudLayer.add(item.point);
+            item.point.on("dragmove", (e) => this.updatePointDistances(e));
+        }
+        stage.add(this.pointsCloudLayer);
+    }
+
+    buildPointsCloudRepresentationItem(viewportPoint) {
+        const pointTextAnchors = this.distancesTextAnchor(viewportPoint);
+        return {
+            'point': new Konva.Circle({
                 x: viewportPoint.x,
                 y: viewportPoint.y,
                 radius: 5,
@@ -229,11 +272,82 @@ class Scene {
                 stroke: 'black',
                 strokeWidth: 1,
                 draggable: true,
-            });
-            this.pointsCloudLayer.add(circle);
-            this.pointsCloudRepresentation.push(circle);
-        });
-        stage.add(this.pointsCloudLayer);
+            }),
+            'verticalDistance': {
+                'line': new Konva.Line({
+                    points: [
+                        viewportPoint.x, viewportPoint.y,
+                        viewportPoint.x, this.axisData.horizontalY
+                    ],
+                    stroke: 'black',
+                    strokeWidth: 1,
+                    dash: [10, 10],
+                }),
+                'text': new Konva.Text({
+                    x: pointTextAnchors.vertical.x,
+                    y: pointTextAnchors.vertical.y,
+                    text: `${(Math.abs(viewportPoint.y - this.axisData.horizontalY) * this.distanceCoef).toFixed(2)} см`,
+                    fontSize: 14,
+                    fill: 'gray',
+                    fontStyle: 'bold',
+                }),
+            },
+            'horizontalDistance': {
+                'line': new Konva.Line({
+                    points: [
+                        viewportPoint.x, viewportPoint.y,
+                        this.axisData.verticalX, viewportPoint.y
+                    ],
+                    stroke: 'black',
+                    strokeWidth: 1,
+                    dash: [10, 10],
+                }),
+                'text': new Konva.Text({
+                    x: pointTextAnchors.horizontal.x,
+                    y: pointTextAnchors.horizontal.y,
+                    text: `${(Math.abs(viewportPoint.x - this.axisData.verticalX) * this.distanceCoef).toFixed(2)} см`,
+                    fontSize: 14,
+                    fill: 'gray',
+                    fontStyle: 'bold',
+                }),
+            },
+        }
+    }
+
+    updatePointDistances(e) {
+        const targetIndex = this.findPointCloud(e.currentTarget);
+        const item = this.pointsCloudRepresentation[targetIndex];
+        const pointTextAnchors = this.distancesTextAnchor({ x: e.currentTarget.x(), y: e.currentTarget.y() });
+        let currPoints = item.horizontalDistance.line.points();
+        currPoints[0] = e.currentTarget.x();
+        currPoints[1] = e.currentTarget.y();
+        currPoints[3] = e.currentTarget.y();
+        item.horizontalDistance.line.points(currPoints);
+        item.horizontalDistance.text.text(`${(Math.abs(e.currentTarget.x() - this.axisData.verticalX) * this.distanceCoef).toFixed(2)} см`);
+        item.horizontalDistance.text.x(pointTextAnchors.horizontal.x);
+        item.horizontalDistance.text.y(pointTextAnchors.horizontal.y);
+        currPoints = item.verticalDistance.line.points();
+        currPoints[0] = e.currentTarget.x();
+        currPoints[1] = e.currentTarget.y();
+        currPoints[2] = e.currentTarget.x();
+        item.verticalDistance.line.points(currPoints);
+        item.verticalDistance.text.text(`${(Math.abs(e.currentTarget.y() - this.axisData.horizontalY) * this.distanceCoef).toFixed(2)} см`);
+        item.verticalDistance.text.x(pointTextAnchors.vertical.x);
+        item.verticalDistance.text.y(pointTextAnchors.vertical.y);
+        this.pointsCloudLayer.draw();
+        console.log(targetIndex);
+    }
+
+    findPointCloud(point) {
+        let targetIndex = 0;
+        while (this.pointsCloudRepresentation[targetIndex].point != point) {
+            targetIndex++;
+            if (targetIndex >= this.pointsCloudRepresentation.length) {
+                console.log("Point does not found");
+                return null;
+            }
+        }
+        return targetIndex;
     }
 
     setQuadrangleCut(stage) {
@@ -482,6 +596,16 @@ class Scene {
 
     updateMetricsView(isPointsCloudEditingModeEnabled) {
         this.updateAngles(isPointsCloudEditingModeEnabled);
+        this.updatePointCloudDistances(isPointsCloudEditingModeEnabled);
+    }
+
+    updatePointCloudDistances(isPointsCloudEditingModeEnabled) {
+        for (let item of this.pointsCloudRepresentation) {
+            item.horizontalDistance.line.visible(this.settings["areMetricsShown"] && isPointsCloudEditingModeEnabled);
+            item.horizontalDistance.text.visible(this.settings["areMetricsShown"] && isPointsCloudEditingModeEnabled);
+            item.verticalDistance.line.visible(this.settings["areMetricsShown"] && isPointsCloudEditingModeEnabled);
+            item.verticalDistance.text.visible(this.settings["areMetricsShown"] && isPointsCloudEditingModeEnabled);
+        }
     }
 
     onPointsCloudEditingModeToggling(isPointsCloudEditingModeEnabled) {
@@ -491,7 +615,8 @@ class Scene {
 
     updatePointsCloud() {
         let newPoints = [];
-        for (let point of this.pointsCloudRepresentation) {
+        for (let item of this.pointsCloudRepresentation) {
+            const point = item.point;
             let normalCoords = this.viewportCoordinateToNormal({
                 x: point.x(),
                 y: point.y()

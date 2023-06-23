@@ -19,7 +19,8 @@ class Editor {
   }
 
   bindCloudPoints() {
-    for (let point of this.scene.pointsCloudRepresentation) {
+    for (let item of this.scene.pointsCloudRepresentation) {
+      const point = item.point;
       point.on("mousedown touchstart", (e) => this.onExistingPointClickTouch(e));
       point.draw();
     }
@@ -53,7 +54,8 @@ class Editor {
   }
 
   setBinds() {
-    for (let point of this.scene.pointsCloudRepresentation) {
+    for (let item of this.scene.pointsCloudRepresentation) {
+      const point = item.point;
       point.draggable(true);
       point.draw();
     }
@@ -63,18 +65,10 @@ class Editor {
     if (this.currentState == Editor.Modes.Disabled)
       return;
 
-    this.target = 0;
-    while (this.scene.pointsCloudRepresentation[this.target] != e.currentTarget) {
-      this.target++;
-      if (this.target >= this.scene.pointsCloudRepresentation.length) {
-        console.log("Point does not found");
-        this.target = null;
-        break;
-      }
-    }
+    this.target = this.scene.findPointCloud(e.currentTarget);
     console.log(`Point has been found ${this.target}`);
     if (e.evt instanceof MouseEvent) {
-      let point = this.scene.pointsCloudRepresentation[this.target];
+      let point = this.scene.pointsCloudRepresentation[this.target].point;
       point.x(e.evt.offsetX);
       point.y(e.evt.offsetY);
       point.draw();
@@ -95,41 +89,45 @@ class Editor {
         viewportCoords.x = e.touches[0].offsetX;
         viewportCoords.y = e.touches[0].offsetY;
       }
-      let index = this.scene.pointsCloudRepresentation.length;
-      let newPoint = new Konva.Circle({
-        x: viewportCoords.x,
-        y: viewportCoords.y,
-        radius: 5,
-        fill: Color.blue,
-        stroke: 'black',
-        strokeWidth: 1,
-        draggable: true
-      });
-      this.scene.pointsCloudRepresentation.push(newPoint);
-      this.scene.pointsCloudLayer.add(newPoint);
+      const newItem = this.scene.buildPointsCloudRepresentationItem(viewportCoords);
+      newItem.point.on("mousedown touchstart", (e) => this.onExistingPointClickTouch(e));
+      newItem.point.on("dragmove", (e) => this.scene.updatePointDistances(e));
+      this.scene.pointsCloudLayer.add(
+        newItem.horizontalDistance.line, newItem.horizontalDistance.text,
+        newItem.verticalDistance.line, newItem.verticalDistance.text,
+        newItem.point
+      );
+      for (const item of this.scene.pointsCloudRepresentation) {
+        item.point.draw();
+      }
+      this.scene.pointsCloudRepresentation.push(newItem);
       this.scene.pointCloud.add(
         this.scene.viewportCoordinateToNormal(viewportCoords)
       )
-      newPoint.on("mousedown touchstart", (e) => this.onExistingPointClickTouch(e, index));
-      console.log("Point has been added", viewportCoords);
+      console.log("Point has been added ", viewportCoords);
       return;
     }
     console.log(`An existing point has been moved`);
   }
 
   clearBinds() {
-    for (let point of this.scene.pointsCloudRepresentation) {
-      point.draggable(false);
-      point.draw();
+    for (let item of this.scene.pointsCloudRepresentation) {
+      item.point.draggable(false);
+      item.point.draw();
     }
   }
 
   deleteTarget() {
     if (this.target != null) {
-      this.scene.pointsCloudRepresentation[this.target].destroy();
+      const item = this.scene.pointsCloudRepresentation[this.target];
+      item.point.destroy();
+      item.verticalDistance.line.destroy();
+      item.verticalDistance.text.destroy();
+      item.horizontalDistance.line.destroy();
+      item.horizontalDistance.text.destroy();
       this.scene.pointsCloudLayer.draw();
       this.scene.pointsCloudRepresentation.splice(this.target, 1);
-      this.scene.pointCloud.remove(this.target);
+      this.scene.pointCloud.splice(this.target, 1);
       this.target = null;
       this.bindCloudPoints();
       console.log("Point has been removed");
