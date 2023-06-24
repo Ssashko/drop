@@ -26,6 +26,8 @@ function initializeSettings(settings) {
   document.getElementById("quadrangle-vertices-radius").value = settings["quadrangleVerticesRadius"];
   document.getElementById("axis-length").value = settings["axisLength"];
   document.getElementById("show-metrics").checked = settings["areMetricsShown"];
+  document.getElementById("toggle-editing-points-mode-btn").value = 0;
+  document.getElementById("build-min-quadrangle").value = 0;
 }
 
 function updateSettings(scene) {

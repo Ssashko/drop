@@ -26,9 +26,8 @@ class Editor {
     }
   }
 
-  toggle(e) {
-    this.currentState = this.currentState == Editor.Modes.Disabled ?
-      Editor.Modes.Enabled : Editor.Modes.Disabled;
+  toggle(e, mode, quadrangleType) {
+    this.currentState = mode === "1" || mode === "true" ? Editor.Modes.Enabled : Editor.Modes.Disabled;
     this.toggleCursor();
     if (this.currentState == Editor.Modes.Enabled) {
       this.setBinds();
@@ -39,7 +38,7 @@ class Editor {
       this.clearBinds();
       this.scene.updatePointsCloud();
     }
-    this.scene.onPointsCloudEditingModeToggling(this.currentState);
+    this.scene.onPointsCloudEditingModeToggling(this.currentState, quadrangleType);
     return this.currentState;
   }
 

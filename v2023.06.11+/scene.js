@@ -46,8 +46,7 @@ class Scene {
 
         this.pointCloud = new PointCloud();
         this.pointCloud.genRandPoints();
-        this.quadrangleCut = new QuadrangleCut(this.pointCloud);
-        // this.quadrangleCut = MinimumCircumscribeCut();
+        this.quadrangleCut = new QuadrangleCut(this.pointCloud, QuadrangleCut.Type.Rhombus);
 
         var stage = new Konva.Stage({
             container: 'viewport',
@@ -452,10 +451,9 @@ class Scene {
         }
     }
 
-    updateQuadrangleCut(buildNewQuadrangleCut, isPointsCloudEditingModeEnabled) {
+    updateQuadrangleCut(buildNewQuadrangleCut, isPointsCloudEditingModeEnabled, quadrangleType) {
         if (buildNewQuadrangleCut) {
-            // TODO: build quadrangleCut
-            this.quadrangleCut = new QuadrangleCut(this.pointCloud);    // temporary represents the building of a quadrangleCut            
+            this.quadrangleCut = new QuadrangleCut(this.pointCloud, quadrangleType);
             let vertices = this.quadrangleCut.getVertices().map(vertex => this.normalCoordinateToViewport(vertex));
 
             for (let i = 0; i < vertices.length; i++) {
@@ -579,7 +577,6 @@ class Scene {
         sector.angle(sectorParams.angle);
         sector.rotation(sectorParams.rotation);
         sector.visible(this.settings["areMetricsShown"] && !isPointsCloudEditingModeEnabled);
-        sector.draw();
 
         const angleTextParams = angle.getTextParams()
         const viewportAnchor = this.normalCoordinateToViewport({
@@ -591,7 +588,6 @@ class Scene {
         text.y(viewportAnchor.y);
         text.text(angleTextParams.text);
         text.visible(this.settings["areMetricsShown"] && !isPointsCloudEditingModeEnabled);
-        text.draw();
     }
 
     updateMetricsView(isPointsCloudEditingModeEnabled) {
@@ -608,8 +604,9 @@ class Scene {
         }
     }
 
-    onPointsCloudEditingModeToggling(isPointsCloudEditingModeEnabled) {
-        this.updateQuadrangleCut(!isPointsCloudEditingModeEnabled, isPointsCloudEditingModeEnabled);
+    onPointsCloudEditingModeToggling(isPointsCloudEditingModeEnabled, quadrangleType) {
+        this.updateQuadrangleCut(!isPointsCloudEditingModeEnabled,
+            isPointsCloudEditingModeEnabled, quadrangleType);
         this.updateMetricsView(isPointsCloudEditingModeEnabled);
     }
 
@@ -624,6 +621,23 @@ class Scene {
             newPoints.push(normalCoords);
         }
         this.pointCloud.setPoints(newPoints);
+    }
+
+    setQuadrangleCutSidesLength() {
+        for (let item in this.quadrangleCutRepresentation) {
+            const lengthMetric = {
+                "startPoint": {
+                    x: item.line.points()[0],
+                    y: item.line.points()[1],
+                },
+                "endPoint": {
+                    x: item.line.points()[2],
+                    y: item.line.points()[3],
+                }
+            }
+            // TODO: show length metric for segment
+            // shown length metric must be invisible
+        }
     }
 }
 

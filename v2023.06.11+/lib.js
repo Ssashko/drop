@@ -119,11 +119,23 @@ class PointCloud {
 }
 
 class QuadrangleCut {
-    constructor(pointCloud) {
+    static Type = {
+        "Rhombus": 0,
+        "Quadrangle": 1
+    }
+
+    constructor(pointCloud, type) {
+        if (type === QuadrangleCut.Type.Rhombus) {
+            // TODO: set rhombus vertices
+        }
+        else if (type === QuadrangleCut.Type.Quadrangle) {
+            // TODO: set min quadrangle vertices
+        }
+
+        // temporary
         const offset = 0.03;
         const maxCoord = this.getMaxCoord(pointCloud.getPoints()) + offset;
         const minCoord = this.getMinCoord(pointCloud.getPoints()) - offset;
-
         this._vertices = [
             { x: minCoord, y: minCoord },
             { x: minCoord, y: maxCoord },
