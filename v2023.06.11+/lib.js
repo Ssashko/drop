@@ -1,88 +1,3 @@
-function getPerpendicularBase(point, line) {
-    const _y = (line.a * line.a * point.y - line.a * line.b * point.x - line.b * line.c) / (line.b * line.b + line.a * line.a);
-    const _x = line.a != 0 ? (-line.b / line.a * _y - line.c / line.a) : point.x;
-    return {
-        x: _x,
-        y: _y
-    };
-}
-function dot(v1, v2) {
-    return (v1.x * v2.x + v1.y * v2.y) / (Math.sqrt(v1.x * v1.x + v1.y * v1.y) * Math.sqrt(v2.x * v2.x + v2.y * v2.y));
-}
-function len(v1, v2) {
-    return Math.sqrt((v1.x - v2.x) * (v1.x - v2.x) + (v1.y - v2.y) * (v1.y - v2.y));
-}
-function checkAABB(p1, p2, point) {
-    let maxX = Math.max(p1.x, p2.x);
-    let minX = Math.min(p1.x, p2.x);
-
-    let maxY = Math.max(p1.y, p2.y);
-    let minY = Math.min(p1.y, p2.y);
-
-    return (minX - EPS < point.x && point.x < maxX + EPS) && (minY - EPS < point.y && point.y < maxY + EPS);
-}
-
-function nearestPolygonPoint(polygon, vertex) {
-    let plgSize = polygon.length;
-    let lines = [];
-    for (let i = 0; i < plgSize; i++) {
-        let p0 = polygon[i];
-        let p1 = polygon[(i + 1) % plgSize];
-        lines.push({
-            a: p0.y - p1.y,
-            b: p1.x - p0.x,
-            c: p0.x * p1.y - p1.x * p0.y
-        });
-    }
-    let nearestPolygonPoints = [];
-    for (let i = 0; i < plgSize; i++) {
-        let p0 = polygon[i];
-        let p1 = polygon[(i + 1) % plgSize];
-        let footOfPerpendicular = getPerpendicularBase(vertex, lines[i]);
-        if (checkAABB(p0, p1, footOfPerpendicular))
-            nearestPolygonPoints.push({
-                point: footOfPerpendicular,
-                normal: { x: lines[i].a, y: lines[i].b }
-            });
-        else if (len(p0, vertex) < len(p1, vertex))
-            nearestPolygonPoints.push({
-                point: p0,
-                normal: { x: lines[i].a + lines[(plgSize + i - 1) % plgSize].a, y: lines[i].b + lines[(plgSize + i - 1) % plgSize].b }
-            });
-        else
-            nearestPolygonPoints.push({
-                point: p1,
-                normal: { x: lines[i].a + lines[(i + 1) % plgSize].a, y: lines[i].b + lines[(i + 1) % plgSize].b }
-            });
-    }
-
-    let min_index = 0;
-    let min_width = len(nearestPolygonPoints[0].point, vertex);
-    for (let i = 0; i < nearestPolygonPoints.length; i++) {
-        let cur_len = len(nearestPolygonPoints[i].point, vertex);
-        if (cur_len < min_width) {
-            min_width = cur_len;
-            min_index = i;
-        }
-    }
-    return nearestPolygonPoints[min_index];
-}
-
-function determinant(matrix2x2) {
-    return matrix2x2[0][0] * matrix2x2[1][1] - matrix2x2[1][0] * matrix2x2[0][1]
-}
-
-function invert(matrix2x2) {
-    const matrix2x2Det = determinant(matrix2x2);
-    if (matrix2x2 === 0)
-        return null;
-
-    return [
-        [matrix2x2[1][1] / matrix2x2Det, -matrix2x2[0][1] / matrix2x2Det],
-        [-matrix2x2[1][0] / matrix2x2Det, matrix2x2[0][0] / matrix2x2Det]
-    ]
-}
-
 class PointCloud {
     constructor() {
         this._points = [];
@@ -92,25 +7,18 @@ class PointCloud {
         return this._points;
     }
 
-    setPoints(points) {
-        this._points = points;
-    }
-
     genRandPoints() {
-        const count = Math.ceil(Math.random() * 5) + 2;
+        const count = Math.ceil(Math.random() * 7) + 2;
         for (let i = 0; i < count; i++)
             this._points.push(this.genRandPoint());
     }
 
     genRandPoint() {
-        return {
-            x: Math.random() / 2 + 0.25,
-            y: Math.random() / 2 + 0.25
-        }
+        return Point.create( (Math.random() > 0.5 ? -1 : 1) * Math.random() / 4 , (Math.random() > 0.5 ? -1 : 1) * Math.random() / 4);
     }
 
     add(normalCoords) {
-        this._points.push(normalCoords);
+        this._points.push(Point.create(normalCoords));
     }
 
     remove(index) {
@@ -120,30 +28,31 @@ class PointCloud {
 
 class QuadrangleCut {
     static Type = {
-        "Rhombus": 0,
-        "Quadrangle": 1
+        "Standart": 0,
+        "Optimal": 1
     }
 
     constructor(pointCloud, type) {
-        if (type === QuadrangleCut.Type.Rhombus) {
-            // TODO: set rhombus vertices
-        }
-        else if (type === QuadrangleCut.Type.Quadrangle) {
-            // TODO: set min quadrangle vertices
-        }
+        this.reloadCut(pointCloud, type);
 
-        // temporary
-        const offset = 0.03;
-        const maxCoord = this.getMaxCoord(pointCloud.getPoints()) + offset;
-        const minCoord = this.getMinCoord(pointCloud.getPoints()) - offset;
-        this._vertices = [
-            { x: minCoord, y: minCoord },
-            { x: minCoord, y: maxCoord },
-            { x: maxCoord, y: maxCoord },
-            { x: maxCoord, y: minCoord }
-        ];
     }
+    changeOffset(offset)
+    {
+        this.offset = offset;
+    }
+    reloadCut(pointCloud, type)
+    {
+        this.offset = 0.03;
 
+        this.cut = new MinimumCircumscribeCut(pointCloud.getPoints());
+        this.cut.makeOffset(this.offset);
+        if (type === QuadrangleCut.Type.Optimal)
+            this.cut.tryGenOptimalCut();
+        else
+            this.cut.genStandartCut();
+
+        this._vertices = this.cut.getCut();
+    }
     getVertices() {
         return this._vertices;
     }
@@ -154,14 +63,9 @@ class QuadrangleCut {
 
     checkPointsIncluded(pointCloud) {
         for (let i = 0; i < pointCloud.getPoints().length; i++)
-            if (!this.checkPointIncluded(pointCloud.getPoints()[i]))
+            if (!Polygon.create(this._vertices).pointIntersection(pointCloud.getPoints()[i]))
                 return false;
         return true;
-    }
-
-    checkPointIncluded(vertex) {
-        let nearestPoint = nearestPolygonPoint(this._vertices, vertex);
-        return dot(nearestPoint.normal, { x: nearestPoint.point.x - vertex.x, y: nearestPoint.point.y - vertex.y }) > -Number.EPSILON;
     }
 
     hasSelfIntersection() {

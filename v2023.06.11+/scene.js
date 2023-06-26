@@ -8,7 +8,6 @@ const Color = {
     black: "#000",
 };
 
-const EPS = 1e-3;
 
 function translate(point, vector) {
     return { x: point.x + vector.x, y: point.y + vector.y };
@@ -46,7 +45,7 @@ class Scene {
 
         this.pointCloud = new PointCloud();
         this.pointCloud.genRandPoints();
-        this.quadrangleCut = new QuadrangleCut(this.pointCloud, QuadrangleCut.Type.Rhombus);
+        this.quadrangleCut = new QuadrangleCut(this.pointCloud, QuadrangleCut.Type.Optimal);
 
         var stage = new Konva.Stage({
             container: 'viewport',
@@ -61,10 +60,13 @@ class Scene {
         this.setPointCloud(stage);
         this.setQuadrangleCutAngles(stage);
         this.setQuadrangleCut(stage);
-
+        
         this.target = null;;
     }
-
+    updateCut(type)
+    {
+        this.quadrangleCut.reloadCut(this.pointCloud, type);
+    }
     updateViewportSize() {
         const viewportSide = Math.min(window.innerWidth, window.innerHeight);
         this.viewportExtends.w = viewportSide;
@@ -77,8 +79,18 @@ class Scene {
             h: this.viewportExtends.h / this.normalExtends.h
         };
         return {
-            x: ratio.w * vertex.x,
-            y: ratio.h * vertex.y
+            x: ratio.w * (vertex.x + 1) / 2,
+            y: - ratio.h * (vertex.y - 1) / 2
+        }
+    }
+    viewportCoordinateToNormal(vertex) {
+        let ratio = {
+            w: this.normalExtends.w / this.viewportExtends.w,
+            h: this.normalExtends.h / this.viewportExtends.h
+        };
+        return {
+            x: ratio.w * vertex.x * 2 - 1,
+            y: - ratio.h * vertex.y * 2 + 1
         }
     }
 
@@ -397,6 +409,30 @@ class Scene {
         stage.add(layer);
     }
 
+    setConvexHull(stage, convhull, color) {
+        let vertices = convhull.getListVertices().map(vertex => this.normalCoordinateToViewport(vertex));
+
+        var layer = new Konva.Layer();
+        this.quadrangleCutRepresentation = {
+            "lines": [],
+            "vertices": []
+        }
+        for (let i = 0; i < vertices.length; i++) {
+            var startVertex = vertices[i];
+            var endVertex = vertices[(i + 1) % vertices.length];
+            var quadrangleSide = new Konva.Line({
+                points: [
+                    startVertex.x, startVertex.y,
+                    endVertex.x, endVertex.y
+                ],
+                stroke: color,
+                strokeWidth: this.settings["quadrangleSideWidth"] * 0.5,
+            });
+            layer.add(quadrangleSide);
+        }
+        stage.add(layer);
+    }
+
     setTarget(target) {
         this.target = target;
     }
@@ -490,17 +526,6 @@ class Scene {
             { "x": viewportVertex.x(), "y": viewportVertex.y() }
         );
         this.quadrangleCut.moveVertex(this.target, viewportVertex);
-    }
-
-    viewportCoordinateToNormal(vertex) {
-        let ratio = {
-            w: this.normalExtends.w / this.viewportExtends.w,
-            h: this.normalExtends.h / this.viewportExtends.h
-        };
-        return {
-            x: ratio.w * vertex.x,
-            y: ratio.h * vertex.y
-        }
     }
 
     updateAxisLength() {
@@ -622,7 +647,6 @@ class Scene {
         }
         this.pointCloud.setPoints(newPoints);
     }
-
     setQuadrangleCutSidesLength() {
         for (let item in this.quadrangleCutRepresentation) {
             const lengthMetric = {
