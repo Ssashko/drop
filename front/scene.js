@@ -7,7 +7,6 @@ const Color = {
     white: "#ffffff",
     black: "#000",
 };
-const EPS = 1e-3;
 
 class Scene {
     constructor(settings) {
@@ -37,7 +36,15 @@ class Scene {
         this.setBackgroundGrid(stage);
         this.setAxes(stage);
         this.setPointCloud(stage);
+
+        let convhull = ConvexHull.create(this.pointCloud.getPoints()).getPolygon();
+        convhull.makeOffset(0.05);
+        this.setConvexHull(stage, convhull, Color.darkGreen);
+
+        convhull = ConvexHull.create(this.pointCloud.getPoints()).getPolygon();
+        this.setConvexHull(stage, convhull, Color.green);
         this.setQuadrangleCut(stage);
+        
 
         this.target = null;
     }
@@ -54,8 +61,18 @@ class Scene {
             h: this.viewportExtends.h / this.normalExtends.h
         };
         return {
-            x: ratio.w * vertex.x,
-            y: ratio.h * vertex.y
+            x: ratio.w * (vertex.x + 1) / 2,
+            y: - ratio.h * (vertex.y - 1) / 2
+        }
+    }
+    viewportCoordinateToNormal(vertex) {
+        let ratio = {
+            w: this.normalExtends.w / this.viewportExtends.w,
+            h: this.normalExtends.h / this.viewportExtends.h
+        };
+        return {
+            x: ratio.w * vertex.x * 2 - 1,
+            y: - ratio.h * vertex.y * 2 + 1
         }
     }
 
@@ -257,6 +274,30 @@ class Scene {
         stage.add(layer);
     }
 
+    setConvexHull(stage, convhull, color) {
+        let vertices = convhull.getListVertices().map(vertex => this.normalCoordinateToViewport(vertex));
+
+        var layer = new Konva.Layer();
+        this.quadrangleCutRepresentation = {
+            "lines": [],
+            "vertices": []
+        }
+        for (let i = 0; i < vertices.length; i++) {
+            var startVertex = vertices[i];
+            var endVertex = vertices[(i + 1) % vertices.length];
+            var quadrangleSide = new Konva.Line({
+                points: [
+                    startVertex.x, startVertex.y,
+                    endVertex.x, endVertex.y
+                ],
+                stroke: Color.black,
+                strokeWidth: this.settings["quadrangleSideWidth"] * 0.5,
+            });
+            layer.add(quadrangleSide);
+        }
+        stage.add(layer);
+    }
+
     setTarget(target) {
         this.target = target;
     }
@@ -316,17 +357,6 @@ class Scene {
             { "x": viewportVertex.x(), "y": viewportVertex.y() }
         );
         this.quadrangleCut.moveVertex(this.target, viewportVertex);
-    }
-
-    viewportCoordinateToNormal(vertex) {
-        let ratio = {
-            w: this.normalExtends.w / this.viewportExtends.w,
-            h: this.normalExtends.h / this.viewportExtends.h
-        };
-        return {
-            x: ratio.w * vertex.x,
-            y: ratio.h * vertex.y
-        }
     }
 
     updateAxisLength() {
