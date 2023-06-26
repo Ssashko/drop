@@ -110,7 +110,7 @@
     document.getElementById("update-btn").addEventListener("click", () => updateSettings(scene));
     document.getElementById("toggle-editing-points-mode-btn")
       .addEventListener("click", (e) => {
-        let currentMode = editor.toggle(e, e.currentTarget.value, QuadrangleCut.Type.Rhombus);
+        let currentMode = editor.toggle(e, e.currentTarget.value, QuadrangleCut.Type.Standart);
         document.getElementById("toggle-editing-points-mode-btn").value = !currentMode;
         document.getElementById("build-min-quadrangle").value = 0;
         e.currentTarget.innerText = currentMode == Editor.Modes.Enabled ?
@@ -119,7 +119,7 @@
       });
     document.getElementById("build-min-quadrangle")
       .addEventListener("click", (e) => {
-        let currentMode = editor.toggle(e, e.currentTarget.value, QuadrangleCut.Type.Quadrangle);
+        let currentMode = editor.toggle(e, e.currentTarget.value, QuadrangleCut.Type.Optimal);
         document.getElementById("build-min-quadrangle").value = !currentMode;
         document.getElementById("toggle-editing-points-mode-btn").value = 0;
         e.currentTarget.innerText = currentMode == Editor.Modes.Enabled ?

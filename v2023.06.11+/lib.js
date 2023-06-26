@@ -7,6 +7,10 @@ class PointCloud {
         return this._points;
     }
 
+    setPoints(points) {
+        this._points = points;
+    }
+
     genRandPoints() {
         const count = Math.ceil(Math.random() * 7) + 2;
         for (let i = 0; i < count; i++)
@@ -14,7 +18,10 @@ class PointCloud {
     }
 
     genRandPoint() {
-        return Point.create( (Math.random() > 0.5 ? -1 : 1) * Math.random() / 4 , (Math.random() > 0.5 ? -1 : 1) * Math.random() / 4);
+        return Point.create(
+            (Math.random() > 0.5 ? -1 : 1) * Math.random() / 5,
+            (Math.random() > 0.5 ? -1 : 1) * Math.random() / 5
+        );
     }
 
     add(normalCoords) {
@@ -34,14 +41,12 @@ class QuadrangleCut {
 
     constructor(pointCloud, type) {
         this.reloadCut(pointCloud, type);
-
+        this._pointCloud = pointCloud;
     }
-    changeOffset(offset)
-    {
+    changeOffset(offset) {
         this.offset = offset;
     }
-    reloadCut(pointCloud, type)
-    {
+    reloadCut(pointCloud, type) {
         this.offset = 0.03;
 
         this.cut = new MinimumCircumscribeCut(pointCloud.getPoints());
@@ -121,5 +126,30 @@ class QuadrangleCut {
             min = Math.min(element.x, element.y, min);
         });
         return min;
+    }
+
+    getRestCut() {
+        let pol = Polygon.create(this._vertices);
+        let min_i = 0;
+        pol.getListVertices().forEach((el, i) => {
+            if (pol.getVertex(min_i).y > el.y)
+                min_i = i;
+        })
+        let q0 = Point.create(pol.getVertex(min_i - 2));
+        let q1 = Point.create(pol.getVertex(min_i - 1));
+        let q2 = Point.create(pol.getVertex(min_i));
+        let q3 = Point.create(pol.getVertex(min_i + 1));
+
+        let v1 = Vector.create(q1.x - q2.x, q1.y - q2.y);
+        let v2 = Vector.create(q3.x - q2.x, q3.y - q2.y);
+        if (!(Math.abs(v1.length - v2.length) < 10e-3))
+            return null;
+        let angle = Vector.angleBetween(v1, v2);
+        return [q3.rotate(q2, angle), q0.rotate(q2, angle), q1.rotate(q2, angle)];
+    }
+
+    isValid() {
+        return this.checkPointsIncluded(this._pointCloud)
+            && !this.hasSelfIntersection();
     }
 }

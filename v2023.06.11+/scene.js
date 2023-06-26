@@ -22,8 +22,8 @@ function rotate(point, anchor, angleRad) {
     const translation = { x: -anchor.x, y: -anchor.y };
     let resultPoint = translate(point, translation);
     resultPoint = {
-        x: resultPoint.x * Math.cos(angleRad) - resultPoint.y * Math.sin(angleRad),
-        y: resultPoint.x * Math.sin(angleRad) + resultPoint.y * Math.cos(angleRad)
+        x: resultPoint.x * Math.cos(angleRad) + resultPoint.y * Math.sin(angleRad),
+        y: -resultPoint.x * Math.sin(angleRad) + resultPoint.y * Math.cos(angleRad)
     };
     return translate(resultPoint, { x: -translation.x, y: -translation.y });
 }
@@ -39,8 +39,8 @@ class Scene {
             h: this.viewportSide
         };
         this.normalExtends = {
-            w: 1,
-            h: 1
+            w: 2,
+            h: 2
         };
 
         this.pointCloud = new PointCloud();
@@ -55,16 +55,36 @@ class Scene {
 
         this.setBackgroundGrid(stage);
         this.setAxes(stage);
+
+        this.pointsCloudLayer = new Konva.Layer();
+        this.convexHullRepresentation = {
+            "outer": null,
+            "inner": null,
+        }
+        let convhull = ConvexHull.create(this.pointCloud.getPoints()).getPolygon();
+        convhull.makeOffset(this.quadrangleCut.offset);
+        this.convexHullRepresentation.outer = this.setConvexHull(convhull, Color.blue);
+        convhull = ConvexHull.create(this.pointCloud.getPoints()).getPolygon();
+        this.convexHullRepresentation.inner = this.setConvexHull(convhull, Color.green);
+        this.setPointCloud(stage);
         this.anglesLayer = new Konva.Layer();
         this.shownAngles = [];
-        this.setPointCloud(stage);
         this.setQuadrangleCutAngles(stage);
         this.setQuadrangleCut(stage);
-        
-        this.target = null;;
+
+        this.flapRepresentation = {
+            firstLine: null,
+            secondLine: null,
+            angle: {
+                sector: null,
+                text: null
+            }
+        }
+        this.setFlap();
+
+        this.target = null;
     }
-    updateCut(type)
-    {
+    updateCut(type) {
         this.quadrangleCut.reloadCut(this.pointCloud, type);
     }
     updateViewportSize() {
@@ -79,8 +99,8 @@ class Scene {
             h: this.viewportExtends.h / this.normalExtends.h
         };
         return {
-            x: ratio.w * (vertex.x + 1) / 2,
-            y: - ratio.h * (vertex.y - 1) / 2
+            x: ratio.w * (vertex.x + 1),
+            y: -ratio.h * (vertex.y - 1),
         }
     }
     viewportCoordinateToNormal(vertex) {
@@ -89,8 +109,8 @@ class Scene {
             h: this.normalExtends.h / this.viewportExtends.h
         };
         return {
-            x: ratio.w * vertex.x * 2 - 1,
-            y: - ratio.h * vertex.y * 2 + 1
+            x: ratio.w * vertex.x - 1,
+            y: -ratio.h * vertex.y + 1
         }
     }
 
@@ -248,9 +268,8 @@ class Scene {
     }
 
     setPointCloud(stage) {
-        this.pointsCloudLayer = new Konva.Layer();
         this.axisData = {
-            "horizontalY": (this.normalExtends.h - this.axisNormalOffset) * this.viewportExtends.h,
+            "horizontalY": (1 - this.axisNormalOffset) * this.viewportExtends.h,
             "verticalX": this.viewportExtends.w / 2,
             "viewportLength": this.viewportSide * (1 - 2 * this.axisNormalOffset),
         };
@@ -409,28 +428,23 @@ class Scene {
         stage.add(layer);
     }
 
-    setConvexHull(stage, convhull, color) {
+    setConvexHull(convhull, color) {
         let vertices = convhull.getListVertices().map(vertex => this.normalCoordinateToViewport(vertex));
-
-        var layer = new Konva.Layer();
-        this.quadrangleCutRepresentation = {
-            "lines": [],
-            "vertices": []
+        let points = [];
+        for (const vertex of vertices) {
+            points.push(vertex.x);
+            points.push(vertex.y);
         }
-        for (let i = 0; i < vertices.length; i++) {
-            var startVertex = vertices[i];
-            var endVertex = vertices[(i + 1) % vertices.length];
-            var quadrangleSide = new Konva.Line({
-                points: [
-                    startVertex.x, startVertex.y,
-                    endVertex.x, endVertex.y
-                ],
-                stroke: color,
-                strokeWidth: this.settings["quadrangleSideWidth"] * 0.5,
-            });
-            layer.add(quadrangleSide);
-        }
-        stage.add(layer);
+        let convexHull = new Konva.Line({
+            points: points,
+            stroke: color,
+            strokeWidth: this.settings["quadrangleSideWidth"] * 0.5,
+            closed: true,
+            visible: false
+        });
+        this.pointsCloudLayer.add(convexHull);
+        convexHull.draw();
+        return convexHull;
     }
 
     setTarget(target) {
@@ -453,10 +467,10 @@ class Scene {
         secondLine.draw();
 
         this.updateQuadrangleCut(false);
-        let lineColor = this.quadrangleCut.checkPointsIncluded(this.pointCloud)
-            && !this.quadrangleCut.hasSelfIntersection() ? Color.green : Color.red;
+        let lineColor = this.quadrangleCut.isValid() ? Color.green : Color.red;
         this.updateQuadrangleLines(lineColor);
         this.updateAngles();
+        this.updateFlap(true, true);
     }
 
     updateBackgroundGrid() {
@@ -522,10 +536,10 @@ class Scene {
             return;
 
         let viewportVertex = this.quadrangleCutRepresentation.vertices[this.target];
-        viewportVertex = this.viewportCoordinateToNormal(
+        let normalVertex = this.viewportCoordinateToNormal(
             { "x": viewportVertex.x(), "y": viewportVertex.y() }
         );
-        this.quadrangleCut.moveVertex(this.target, viewportVertex);
+        this.quadrangleCut.moveVertex(this.target, normalVertex);
     }
 
     updateAxisLength() {
@@ -618,6 +632,7 @@ class Scene {
     updateMetricsView(isPointsCloudEditingModeEnabled) {
         this.updateAngles(isPointsCloudEditingModeEnabled);
         this.updatePointCloudDistances(isPointsCloudEditingModeEnabled);
+        this.updateFlap(!isPointsCloudEditingModeEnabled, false);
     }
 
     updatePointCloudDistances(isPointsCloudEditingModeEnabled) {
@@ -633,6 +648,12 @@ class Scene {
         this.updateQuadrangleCut(!isPointsCloudEditingModeEnabled,
             isPointsCloudEditingModeEnabled, quadrangleType);
         this.updateMetricsView(isPointsCloudEditingModeEnabled);
+        this.convexHullRepresentation.outer.visible(!isPointsCloudEditingModeEnabled);
+        this.convexHullRepresentation.inner.visible(!isPointsCloudEditingModeEnabled);
+        this.updateFlap(!isPointsCloudEditingModeEnabled, true);
+        if (!isPointsCloudEditingModeEnabled) {
+            this.updateConvexHull();
+        }
     }
 
     updatePointsCloud() {
@@ -663,6 +684,103 @@ class Scene {
             // shown length metric must be invisible
         }
     }
+
+    updateConvexHull() {
+        let outerConvexHull = ConvexHull.create(this.pointCloud.getPoints()).getPolygon();
+        outerConvexHull.makeOffset(this.quadrangleCut.offset);
+        let vertices = outerConvexHull.getListVertices().map(vertex => this.normalCoordinateToViewport(vertex));
+        let points = [];
+        for (const vertex of vertices) {
+            points.push(vertex.x);
+            points.push(vertex.y);
+        }
+        this.convexHullRepresentation.outer.points(points);
+        this.convexHullRepresentation.outer.draw();
+        let innerConvexHull = ConvexHull.create(this.pointCloud.getPoints()).getPolygon();
+        vertices = innerConvexHull.getListVertices().map(vertex => this.normalCoordinateToViewport(vertex));
+        points = [];
+        for (const vertex of vertices) {
+            points.push(vertex.x);
+            points.push(vertex.y);
+        }
+        this.convexHullRepresentation.inner.points(points);
+        this.convexHullRepresentation.inner.draw();
+    }
+
+    setFlap() {
+        this.flapRepresentation.firstLine = new Konva.Line({
+            visible: false,
+            stroke: Color.blue,
+            strokeWidth: this.settings["quadrangleSideWidth"],
+        });
+        this.flapRepresentation.secondLine = new Konva.Line({
+            visible: false,
+            stroke: Color.blue,
+            strokeWidth: this.settings["quadrangleSideWidth"],
+        });
+        this.flapRepresentation.angle.sector = this.shownAngles[0].sector.clone();
+        this.flapRepresentation.angle.text = this.shownAngles[0].text.clone();
+        this.anglesLayer.add(
+            this.flapRepresentation.firstLine, this.flapRepresentation.secondLine,
+            this.flapRepresentation.angle.sector, this.flapRepresentation.angle.text
+        );
+    }
+
+    updateFlap(visible, updatePosition) {
+        let normalPoints = this.quadrangleCut.getRestCut();
+        const color = normalPoints == null ? Color.red : Color.blue;
+        this.flapRepresentation.firstLine.stroke(color);
+        this.flapRepresentation.secondLine.stroke(color);
+
+        const angle = new ViewportAngle(
+            normalPoints[0],
+            normalPoints[1],
+            normalPoints[2]
+        );
+        let sector = this.flapRepresentation.angle.sector;
+        sector.visible(this.settings["areMetricsShown"] && visible && this.quadrangleCut.isValid());
+        let text = this.flapRepresentation.angle.text;
+        text.visible(this.settings["areMetricsShown"] && visible && this.quadrangleCut.isValid());
+
+        this.flapRepresentation.firstLine.visible(this.quadrangleCut.isValid() && visible);
+        this.flapRepresentation.firstLine.strokeWidth(this.settings["quadrangleSideWidth"]);
+        this.flapRepresentation.secondLine.visible(this.quadrangleCut.isValid() && visible);
+        this.flapRepresentation.secondLine.strokeWidth(this.settings["quadrangleSideWidth"]);
+
+
+        if (updatePosition) {
+            let sectorParams = angle.getWedgeParams();
+            const sectorCenter = this.normalCoordinateToViewport({
+                x: sectorParams.x,
+                y: sectorParams.y
+            });
+            sector.x(sectorCenter.x);
+            sector.y(sectorCenter.y);
+            sector.angle(sectorParams.angle);
+            sector.rotation(sectorParams.rotation);
+
+            const angleTextParams = angle.getTextParams();
+            const viewportAnchor = this.normalCoordinateToViewport({
+                x: angleTextParams.x,
+                y: angleTextParams.y
+            });
+            text.x(viewportAnchor.x);
+            text.y(viewportAnchor.y);
+            text.text(angleTextParams.text);
+
+            let viewportPoints = normalPoints.map(vertex => this.normalCoordinateToViewport(vertex));
+            this.flapRepresentation.firstLine.points([
+                viewportPoints[0].x, viewportPoints[0].y,
+                viewportPoints[1].x, viewportPoints[1].y,
+            ]);
+            this.flapRepresentation.secondLine.points([
+                viewportPoints[1].x, viewportPoints[1].y,
+                viewportPoints[2].x, viewportPoints[2].y,
+            ]);
+        }
+
+        this.anglesLayer.draw();
+    }
 }
 
 class ViewportAngle {
@@ -671,8 +789,8 @@ class ViewportAngle {
         this.centerY = b.y;
         this.radius = 0.05;
 
-        const vectorBA = { x: a.x - b.x, y: a.y - b.y };
-        const vectorBC = { x: c.x - b.x, y: c.y - b.y };
+        const vectorBA = { x: a.x - b.x, y: b.y - a.y };
+        const vectorBC = { x: c.x - b.x, y: b.y - c.y };
         const dotProduct = vectorBA.x * vectorBC.x + vectorBA.y * vectorBC.y;
         const determinant = vectorBA.x * vectorBC.y - vectorBA.y * vectorBC.x;
         let angleInRadians = Math.atan2(determinant, dotProduct);
@@ -683,22 +801,9 @@ class ViewportAngle {
         this.rotation = (angleInRadians2 * 180) / Math.PI;
 
         let translation = normalize({ x: c.x - b.x, y: c.y - b.y });
-        translation = { x: translation.x * this.radius, y: translation.y * this.radius };
+        translation = { x: translation.x * 2 * this.radius, y: translation.y * 2 * this.radius };
         this.textAnchor = translate(b, translation);
         this.textAnchor = rotate(this.textAnchor, b, -angleInRadians / 2);
-    }
-
-    getPointOnLine(lineStartX, lineStartY, lineEndX, lineEndY, distance) {
-        const directionVectorX = lineEndX - lineStartX;
-        const directionVectorY = lineEndY - lineStartY;
-        const directionVectorLength = Math.sqrt(directionVectorX * directionVectorX + directionVectorY * directionVectorY);
-        const normalizedDirectionVectorX = directionVectorX / directionVectorLength;
-        const normalizedDirectionVectorY = directionVectorY / directionVectorLength;
-        const displacementVectorX = normalizedDirectionVectorX * distance;
-        const displacementVectorY = normalizedDirectionVectorY * distance;
-        const pointX = lineStartX + displacementVectorX;
-        const pointY = lineStartY + displacementVectorY;
-        return { x: pointX, y: pointY };
     }
 
     getWedgeParams() {
