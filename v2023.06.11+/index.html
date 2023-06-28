@@ -88,7 +88,7 @@
           <input id="show-metrics" type="checkbox" checked>
         </div>
         <button id="update-btn" class="settings-btn">Застосувати налаштування</button>
-        <button id="toggle-editing-points-mode-btn" class="settings-btn">Побудувати мін. ромб</button>
+        <button id="toggle-editing-points-mode-btn" class="settings-btn">Вимкнути режим редагування точок</button>
         <button id="build-min-quadrangle" class="settings-btn">Побудувати мін. чотирикутник</button>
       </div>
       <img id="trash-can-icon" src="trash-can.svg">
@@ -110,21 +110,21 @@
     document.getElementById("update-btn").addEventListener("click", () => updateSettings(scene));
     document.getElementById("toggle-editing-points-mode-btn")
       .addEventListener("click", (e) => {
-        let currentMode = editor.toggle(e, e.currentTarget.value, QuadrangleCut.Type.Standart);
-        document.getElementById("toggle-editing-points-mode-btn").value = !currentMode;
-        document.getElementById("build-min-quadrangle").value = 0;
+        const currentMode = editor.toggle(e, e.currentTarget.value);
+        e.currentTarget.value = !currentMode;
         e.currentTarget.innerText = currentMode == Editor.Modes.Enabled ?
-          "Побудувати мін. ромб" : "Ввімкнути режим редагування точок";
-        document.getElementById("build-min-quadrangle").innerText = "Побудувати мін. чотирикутник";
+          "Вимкнути режим редагування точок" : "Ввімкнути режим редагування точок";
       });
     document.getElementById("build-min-quadrangle")
       .addEventListener("click", (e) => {
-        let currentMode = editor.toggle(e, e.currentTarget.value, QuadrangleCut.Type.Optimal);
-        document.getElementById("build-min-quadrangle").value = !currentMode;
-        document.getElementById("toggle-editing-points-mode-btn").value = 0;
-        e.currentTarget.innerText = currentMode == Editor.Modes.Enabled ?
-          "Побудувати мін. чотирикутник" : "Ввімкнути режим редагування точок";
-        document.getElementById("toggle-editing-points-mode-btn").innerText = "Побудувати мін. ромб";
+        const quadrangleCutType = document.getElementById("build-min-quadrangle").value;
+        editor.toggle(e, Editor.Modes.Disabled, quadrangleCutType);
+        document.getElementById("toggle-editing-points-mode-btn").value = Editor.Modes.Enabled;
+        document.getElementById("toggle-editing-points-mode-btn").innerText = "Ввімкнути режим редагування точок";
+        e.currentTarget.value = quadrangleCutType == QuadrangleCut.Type.Optimal ?
+          QuadrangleCut.Type.Standart : QuadrangleCut.Type.Optimal;
+        e.currentTarget.innerText = quadrangleCutType != QuadrangleCut.Type.Optimal ?
+          "Побудувати мін. чотирикутник" : "Побудувати мін. ромб";
       });
   </script>
 </body>

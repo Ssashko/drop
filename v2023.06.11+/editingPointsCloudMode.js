@@ -38,7 +38,7 @@ class Editor {
       this.clearBinds();
       this.scene.updatePointsCloud();
     }
-    this.scene.onPointsCloudEditingModeToggling(this.currentState, quadrangleType);
+    this.scene.onPointsCloudEditingModeToggling(this.currentState, quadrangleType == null ? null : Number.parseInt(quadrangleType));
     return this.currentState;
   }
 
@@ -126,7 +126,7 @@ class Editor {
       item.horizontalDistance.text.destroy();
       this.scene.pointsCloudLayer.draw();
       this.scene.pointsCloudRepresentation.splice(this.target, 1);
-      this.scene.pointCloud.splice(this.target, 1);
+      this.scene.pointCloud.getPoints().splice(this.target, 1);
       this.target = null;
       this.bindCloudPoints();
       console.log("Point has been removed");

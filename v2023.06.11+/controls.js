@@ -27,7 +27,7 @@ function initializeSettings(settings) {
   document.getElementById("axis-length").value = settings["axisLength"];
   document.getElementById("show-metrics").checked = settings["areMetricsShown"];
   document.getElementById("toggle-editing-points-mode-btn").value = 0;
-  document.getElementById("build-min-quadrangle").value = 0;
+  document.getElementById("build-min-quadrangle").value = QuadrangleCut.Type.Optimal;
 }
 
 function updateSettings(scene) {
