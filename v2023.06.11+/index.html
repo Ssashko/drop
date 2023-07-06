@@ -5,14 +5,12 @@
   <meta charset="UTF-8">
   <meta http-equiv="X-UA-Compatible" content="IE=edge">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Document</title>
-  <script src="lib/convexhull.js"></script>
-  <script src="lib/geometry.js"></script>
-  <script src="lib/mincut.js"></script>
-  <script src="lib.js"></script>
-  <script src="scene.js"></script>
-  <script src="editingPointsCloudMode.js"></script>
+  <title>Project</title>
   <script src="https://unpkg.com/konva@9/konva.min.js"></script>
+  <script src="lib/geometry.js"></script>
+  <script src="lib/convexhull.js"></script>
+  <script src="lib/roundedConvexHull.js"></script>
+  <script src="lib/mincut.js"></script>
   <link href="style.css" rel="stylesheet">
 </head>
 
@@ -36,7 +34,14 @@
           <input id="grid-step">
         </div>
         <div class="setting">
-          <div id="line-type" class="dropdown-icon">
+          <svg width="25" height="25">
+            <circle cx="12.5" cy="12.5" r="10" stroke="black" fill="#067391" />
+          </svg>
+          <label>Радіус вхідних точок:</label>
+          <input id="input-points-radius">
+        </div>
+        <div class="setting">
+          <div id="quadrangle-line-type" class="dropdown-icon">
             <div class="current-icon" value="solid">
               <svg width="20" height="25">
                 <g stroke="black">
@@ -58,7 +63,7 @@
             <div class="dropdown-btn">▼</div>
           </div>
           <label>Ширина лінії чотирикутника:</label>
-          <input id="quadrangle-side-width">
+          <input id="lines-width">
         </div>
         <div class="setting">
           <svg width="25" height="25">
@@ -85,48 +90,18 @@
             Відображення довжин та<br>
             градусних мір кутів
           </label>
-          <input id="show-metrics" type="checkbox" checked>
+          <input id="are-metrics-shown" type="checkbox" checked>
         </div>
-        <button id="update-btn" class="settings-btn">Застосувати налаштування</button>
-        <button id="toggle-editing-points-mode-btn" class="settings-btn">Вимкнути режим редагування точок</button>
+        <button id="toggle-editing-points-mode-btn" class="settings-btn" value="0">Вимкнути режим редагування
+          точок</button>
         <button id="build-min-quadrangle" class="settings-btn">Побудувати мін. чотирикутник</button>
+        <button id="build-min-rhombus" class="settings-btn">Побудувати мін. ромб</button>
       </div>
       <img id="trash-can-icon" src="trash-can.svg">
-      <script src="controls.js"></script>
     </div>
   </div>
-  <script>
-    const initialSettings = {
-      "gridStep": 4.6,
-      "quadrangleSideWidth": 5,
-      "quadrangleVerticesRadius": 9,
-      "lineType": "solid",
-      "axisLength": 20,
-      "areMetricsShown": true
-    }
-    initializeSettings(initialSettings);
-    let scene = new Scene(initialSettings);
-    let editor = new Editor(scene);
-    document.getElementById("update-btn").addEventListener("click", () => updateSettings(scene));
-    document.getElementById("toggle-editing-points-mode-btn")
-      .addEventListener("click", (e) => {
-        const currentMode = editor.toggle(e, e.currentTarget.value);
-        e.currentTarget.value = !currentMode;
-        e.currentTarget.innerText = currentMode == Editor.Modes.Enabled ?
-          "Вимкнути режим редагування точок" : "Ввімкнути режим редагування точок";
-      });
-    document.getElementById("build-min-quadrangle")
-      .addEventListener("click", (e) => {
-        const quadrangleCutType = document.getElementById("build-min-quadrangle").value;
-        editor.toggle(e, Editor.Modes.Disabled, quadrangleCutType);
-        document.getElementById("toggle-editing-points-mode-btn").value = Editor.Modes.Enabled;
-        document.getElementById("toggle-editing-points-mode-btn").innerText = "Ввімкнути режим редагування точок";
-        e.currentTarget.value = quadrangleCutType == QuadrangleCut.Type.Optimal ?
-          QuadrangleCut.Type.Standart : QuadrangleCut.Type.Optimal;
-        e.currentTarget.innerText = quadrangleCutType != QuadrangleCut.Type.Optimal ?
-          "Побудувати мін. чотирикутник" : "Побудувати мін. ромб";
-      });
-  </script>
+  <script src="frontEndEntryPoint.js"></script>
+  <script src="controls.js"></script>
 </body>
 
 </html>

@@ -1,28 +1,53 @@
-class Line{
+function translate(point, vector) {
+    return { x: point.x + vector.x, y: point.y + vector.y };
+}
 
-    constructor(a, b, c)
-    {
+function normalize(vector) {
+    const vectorLength = Math.sqrt(vector.x * vector.x + vector.y * vector.y);
+    return vectorLength > EPS ? { x: vector.x / vectorLength, y: vector.y / vectorLength } : null;
+}
+
+function rotate(point, anchor, angleRad) {
+    const translation = { x: -anchor.x, y: -anchor.y };
+    let resultPoint = translate(point, translation);
+    resultPoint = {
+        x: resultPoint.x * Math.cos(angleRad) + resultPoint.y * Math.sin(angleRad),
+        y: -resultPoint.x * Math.sin(angleRad) + resultPoint.y * Math.cos(angleRad)
+    };
+    return translate(resultPoint, { x: -translation.x, y: -translation.y });
+}
+
+function calcAngle360Between(vector1, vector2) {
+    const dotProduct = vector1.x * vector2.x + vector1.y * vector2.y;
+    const determinant = vector1.x * vector2.y - vector1.y * vector2.x;
+    let angleInRadians = Math.atan2(determinant, dotProduct);
+    angleInRadians = angleInRadians > 0 ? angleInRadians : Math.PI * 2 + angleInRadians;
+    return (angleInRadians * 180) / Math.PI;
+}
+
+class Line {
+
+    constructor(a, b, c) {
         this.a = a;
         this.b = b;
         this.c = c;
     }
-    
-    static create(p0, p1)
-    {
+
+    static create(p0, p1) {
         return getLineByPoints(p0, p1);
     }
 
     static linesIntersection(l1, l2) {
         let denom = l1.a * l2.b - l1.b * l2.a;
-        if(Math.abs(denom) < EPS)
+        if (Math.abs(denom) < EPS)
             return null;
         return Point.create((l1.b * l2.c - l2.b * l1.c) / denom, -(l1.a * l2.c - l2.a * l1.c) / denom);
     }
     symmetricByLine(line) {
         let y1 = 0;
         let y2 = 1;
-        let samplePoint1 = fuzzyEqual(this.a, 0) ? Point.create(0, -this.b/ this.c) : Point.create(-this.b/this.a * y1 - this.c/this.a, y1);
-        let samplePoint2 = fuzzyEqual(this.a, 0) ? Point.create(0, -this.b/ this.c) : Point.create(-this.b/this.a * y2 - this.c/this.a, y2);
+        let samplePoint1 = fuzzyEqual(this.a, 0) ? Point.create(0, -this.b / this.c) : Point.create(-this.b / this.a * y1 - this.c / this.a, y1);
+        let samplePoint2 = fuzzyEqual(this.a, 0) ? Point.create(0, -this.b / this.c) : Point.create(-this.b / this.a * y2 - this.c / this.a, y2);
         let perpendicularPoint1 = line.getPerpendicularBase(samplePoint1);
         let perpendicularPoint2 = line.getPerpendicularBase(samplePoint2);
 
@@ -41,14 +66,12 @@ class Line{
     }
 }
 
-function getLineByPoints(p1, p2)
-{
-    return new Line(p2.y - p1.y, p1.x - p2.x,p2.x * p1.y - p1.x * p2.y);
+function getLineByPoints(p1, p2) {
+    return new Line(p2.y - p1.y, p1.x - p2.x, p2.x * p1.y - p1.x * p2.y);
 }
 
 class Point {
-    constructor(x, y)
-    {
+    constructor(x, y) {
         this.x = x;
         this.y = y;
     }
@@ -59,10 +82,8 @@ class Point {
         this.y = -Math.sin(angle) * x + Math.cos(angle) * y + center.y;
         return this;
     }
-    static create(x, y)
-    {
-        if(typeof y === 'undefined')
-        {
+    static create(x, y) {
+        if (typeof y === 'undefined') {
             let a = x;
             return new Point(a.x, a.y);
         }
@@ -76,15 +97,12 @@ class Point {
         return Math.sqrt(this.sqrLength(a, b));
     }
 }
-class Vector extends Point{
-    constructor(x, y)
-    {
-        super(x,y);
+class Vector extends Point {
+    constructor(x, y) {
+        super(x, y);
     }
-    static create(x, y)
-    {
-        if(typeof y === 'undefined')
-        {
+    static create(x, y) {
+        if (typeof y === 'undefined') {
             let a = x;
             return new Vector(a.x, a.y);
         }
@@ -92,25 +110,23 @@ class Vector extends Point{
             return new Vector(x, y);
     }
     static cross(a, b) {
-        return a.x*b.y - b.x*a.y;
+        return a.x * b.y - b.x * a.y;
     }
     static dot(a, b) {
-        return a.x*b.x + a.y*b.y;
+        return a.x * b.x + a.y * b.y;
     }
     sqrLength() {
-        return this.x*this.x + this.y*this.y;
+        return this.x * this.x + this.y * this.y;
     }
     get length() {
         return Math.sqrt(this.sqrLength());
     }
-    static angleBetween(v1, v2) 
-    {
-        return Math.acos(Vector.dot(v1, v2)/ (v2.length * v1.length));
+    static angleBetween(v1, v2) {
+        return Math.acos(Vector.dot(v1, v2) / (v2.length * v1.length));
     }
 }
 class ParametricEdge {
-    constructor(p0, v)
-    {
+    constructor(p0, v) {
         this.p0 = p0;
         this.v = v;
     }
@@ -118,34 +134,30 @@ class ParametricEdge {
         let v = Vector.create(p1.x - p0.x, p1.y - p0.y);
         return new ParametricEdge(p0, v);
     }
-    get line() 
-    {
+    get line() {
         return Line.create(this.p0, Point.create(this.p0.x + this.v.x, this.p0.y + this.v.y));
     }
 
-    get length()
-    {
+    get length() {
         return this.v.length;
     }
 
     lineIntersection(line) {
-        if(fuzzyEqual(line.a * this.v.x + line.b * this.v.y, 0))
+        if (fuzzyEqual(line.a * this.v.x + line.b * this.v.y, 0))
             return false;
         let t = -(line.a * this.p0.x + line.b * this.p0.y + line.c) / (line.a * this.v.x + line.b * this.v.y);
         return t >= 0 && t <= 1;
     }
     pointIntersection(point) {
         let t1 = null, t2 = null;
-        
-        if(fuzzyEqual(this.v.x, 0) )
-        {
-            if(fuzzyEqual(this.v.y, 0))
+
+        if (fuzzyEqual(this.v.x, 0)) {
+            if (fuzzyEqual(this.v.y, 0))
                 return fuzzyEqual(point.x, this.p0.x) && fuzzyEqual(point.y, this.p0.y);
             t2 = (point.y - this.p0.y) / this.v.y;
             return fuzzyEqual(point.x, this.p0.x) && t2 >= 0 && t2 <= 1;
         }
-        if(fuzzyEqual(this.v.y, 0))
-        {
+        if (fuzzyEqual(this.v.y, 0)) {
             t1 = (point.x - this.p0.x) / this.v.x;
             return fuzzyEqual(point.y, this.p0.y) && t1 >= 0 && t1 <= 1;
         }
@@ -162,43 +174,39 @@ class ParametricEdge {
         };
     }
     getNearestPoint(point, info) {
-        let line = Line.create(this.p0 ,Point.create(this.p0.x + this.v.x, this.p0.y + this.v.y));
+        let line = Line.create(this.p0, Point.create(this.p0.x + this.v.x, this.p0.y + this.v.y));
         let base = this.#getPerpendicularBase(point, line);
-        if(this.pointIntersection(base))
-        {
-            if(typeof info !== 'undefined')
+        if (this.pointIntersection(base)) {
+            if (typeof info !== 'undefined')
                 info.type = "edge";
             return base;
         }
 
         let p1 = Point.create(this.p0.x + this.v.x, (this.p0.y + this.v.y));
-        if(Point.length(this.p0, point) < Point.length(p1, point))
-        {
-            if(typeof info !== 'undefined')
+        if (Point.length(this.p0, point) < Point.length(p1, point)) {
+            if (typeof info !== 'undefined')
                 info.type = "start";
             return this.p0;
         }
-        else
-        {
-            if(typeof info !== 'undefined')
+        else {
+            if (typeof info !== 'undefined')
                 info.type = "end";
             return p1;
         }
 
-        
+
     }
 
-    static edgeIntersection(e1, e2)
-    {
+    static edgeIntersection(e1, e2) {
         let cross = Vector.cross(e1.v, e2.v);
         let v = Vector.create(e1.p0.x - e2.p0.x, e1.p0.y - e2.p0.y);
-        if(fuzzyEqual(cross, 0))
+        if (fuzzyEqual(cross, 0))
             return null;
 
         let t1 = Vector.cross(e2.v, v) / cross;
         let t2 = Vector.cross(e1.v, v) / cross;
 
-        if(-EPS < t1 && t1 < 1 + EPS && -EPS < t2 && t2 < 1 + EPS)
+        if (-EPS < t1 && t1 < 1 + EPS && -EPS < t2 && t2 < 1 + EPS)
             return Point.create(e1.v.x * t1 + e1.p0.x, e1.v.y * t1 + e1.p0.y);
         else
             return null;
@@ -206,8 +214,7 @@ class ParametricEdge {
     }
 }
 class Polygon {
-    constructor(list)
-    {
+    constructor(list) {
         this.vertices = [...list];
         this.fixBypassByReverse();
         this.aabb = AABB.create(this.vertices);
@@ -219,29 +226,27 @@ class Polygon {
         return new Polygon(list);
     }
 
-    makeOffset(offset)
-    {
+    makeOffset(offset) {
         let q = this.getListVertices();
 
-        if(q === null)
+        if (q === null)
             return;
         let offset_lines = [];
-        for(let i = 0; i < this.verticesCount;i++)
-        {
-            let line = Line.create(this.getVertex(i), this.getVertex(i+1));
-            let v = Vector.create(this.getVertex(i+1).x - this.getVertex(i).x, this.getVertex(i+1).y - this.getVertex(i).y);
+        for (let i = 0; i < this.verticesCount; i++) {
+            let line = Line.create(this.getVertex(i), this.getVertex(i + 1));
+            let v = Vector.create(this.getVertex(i + 1).x - this.getVertex(i).x, this.getVertex(i + 1).y - this.getVertex(i).y);
             let n = Vector.create(line.a, line.b);
 
-            let sign = Vector.cross(n,v) < 0 ? -1 : 1;
+            let sign = Vector.cross(n, v) < 0 ? -1 : 1;
             let lenN = n.length;
             n.x = sign * offset * n.x / lenN;
             n.y = sign * offset * n.y / lenN;
-            offset_lines.push(Line.create(Point.create(this.getVertex(i).x + n.x, this.getVertex(i).y + n.y), 
-            Point.create(this.getVertex(i + 1).x + n.x, this.getVertex(i + 1).y + n.y)));
+            offset_lines.push(Line.create(Point.create(this.getVertex(i).x + n.x, this.getVertex(i).y + n.y),
+                Point.create(this.getVertex(i + 1).x + n.x, this.getVertex(i + 1).y + n.y)));
         }
-        for(let i = 0; i < this.verticesCount;i++)
+        for (let i = 0; i < this.verticesCount; i++)
             this.vertices[i] = Line.linesIntersection(offset_lines[i], offset_lines[(i + 1) % this.verticesCount]);
-        
+
         this.fixBypassByReverse();
         this.aabb = AABB.create(this.vertices);
     }
@@ -249,32 +254,27 @@ class Polygon {
     getListVertices() {
         return this.vertices;
     }
-    getCycleIndex(index)
-    {
+    getCycleIndex(index) {
         let M = this.vertices.length;
         return (M + index % M) % M;
     }
 
-    fixBypassByReverse()
-    {
-        if(this.vertices.length >= 3 && Vector.cross(this.getEdge(0).v, this.getEdge(1).v) < 0)
+    fixBypassByReverse() {
+        if (this.vertices.length >= 3 && Vector.cross(this.getEdge(0).v, this.getEdge(1).v) < 0)
             this.vertices.reverse();
     }
-    static bypassSign(vertices)
-    {
+    static bypassSign(vertices) {
         let e1 = Point.create(vertices[1].x - vertices[0].x, vertices[1].y - vertices[0].y);
         let e2 = Point.create(vertices[2].x - vertices[1].x, vertices[2].y - vertices[1].y);
         return Vector.cross(e1, e2) > 0 ? 1 : -1;
     }
-    getVertex(index)
-    {
+    getVertex(index) {
         return this.vertices[this.getCycleIndex(index)];
     }
-    getEdge(index)
-    {
-        return ParametricEdge.create(this.getVertex(index), this.getVertex(index+1));
+    getEdge(index) {
+        return ParametricEdge.create(this.getVertex(index), this.getVertex(index + 1));
     }
-    map(callback){
+    map(callback) {
         return Polygon.create(this.vertices.map(callback));
     }
     #getNearestPointWithNormal(point) {
@@ -283,16 +283,14 @@ class Polygon {
         let info = {};
         let nearestPoint = this.getEdge(0).getNearestPoint(point, info);
         let min_length = Point.length(nearestPoint, point);
-        
 
-        for(let i = 0; i < this.vertices.length; i++)
-        {
+
+        for (let i = 0; i < this.vertices.length; i++) {
             let cur_info = {};
             let cur_nearestPoint = this.getEdge(i).getNearestPoint(point, cur_info);
             let cur_length = Point.length(cur_nearestPoint, point);
-            if(min_length > cur_length)
-            {
-                
+            if (min_length > cur_length) {
+
                 index = i;
                 min_length = cur_length;
                 nearestPoint = cur_nearestPoint;
@@ -300,15 +298,15 @@ class Polygon {
             }
         }
 
-        if(info.type === "edge")
+        if (info.type === "edge")
             return { n: this.#getEdgeNormal(index), p: nearestPoint };
-        else if(info.type === "start")
+        else if (info.type === "start")
             return { n: this.#getVertexNormal(index), p: nearestPoint };
         else
             return { n: this.#getVertexNormal(index + 1), p: nearestPoint };
     }
     pointIntersection(point) {
-        if(!this.aabb.pointIntersection(point))
+        if (!this.aabb.pointIntersection(point))
             return false;
         let info = this.#getNearestPointWithNormal(point);
         let n = info.n;
@@ -323,11 +321,10 @@ class Polygon {
         let v = edge.v;
 
         let n = Vector.create(-v.y, v.x);
-        if(Vector.cross(n, v) < 0)
-            {
-                n.x = -n.x;
-                n.y = -n.y;
-            }
+        if (Vector.cross(n, v) < 0) {
+            n.x = -n.x;
+            n.y = -n.y;
+        }
         return n;
     }
     #getVertexNormal(index) {
@@ -338,65 +335,61 @@ class Polygon {
 }
 
 class AABB {
-    constructor(minx, miny, maxx, maxy)
-    {
+    constructor(minx, miny, maxx, maxy) {
         this.minx = minx;
         this.miny = miny;
         this.maxx = maxx;
         this.maxy = maxy;
     }
-    static create(points)
-    {
+    static create(points) {
         let minx = 0;
         let miny = 0;
         let maxx = 0;
         let maxy = 0;
         points.forEach(el => {
-            if(minx > el.x)
+            if (minx > el.x)
                 minx = el.x;
-            if(miny > el.y)
+            if (miny > el.y)
                 miny = el.y;
-            if(maxx < el.x)
+            if (maxx < el.x)
                 maxx = el.x;
-            if(maxy < el.y)
+            if (maxy < el.y)
                 maxy = el.y;
         });
-        
+
         return new AABB(minx, miny, maxx, maxy);
     }
-    pointIntersection(point)
-    {
+    pointIntersection(point) {
         return (this.minx - EPS < point.x && point.x < this.maxx + EPS) &&
             (this.miny - EPS < point.y && point.y < this.maxy + EPS);
     }
 }
 function fuzzyEqual(a, b) {
-    return Math.abs(a-b) < EPS;
+    return Math.abs(a - b) < EPS;
 }
 function cross(a, b) {
-    return a.x*b.y - b.x*a.y;
+    return a.x * b.y - b.x * a.y;
 }
 function dot(a, b) {
-    return a.x*b.x + a.y*b.y;
+    return a.x * b.x + a.y * b.y;
 }
 function getTriangleArea(p1, p2, p3) {
-    let a = Point.length(p1, p2), 
+    let a = Point.length(p1, p2),
         b = Point.length(p2, p3),
         c = Point.length(p3, p1);
     let p = (a + b + c) / 2;
-    return Math.sqrt(p*(p - a)*(p - b)*(p - c));
+    return Math.sqrt(p * (p - a) * (p - b) * (p - c));
 }
-function getQuadrangleArea(p1,p2,p3,p4)
-{
-    return getTriangleArea(p1,p2,p3) + getTriangleArea(p1,p3,p4)
+function getQuadrangleArea(p1, p2, p3, p4) {
+    return getTriangleArea(p1, p2, p3) + getTriangleArea(p1, p3, p4)
 }
 function getRootsOfSqrEq(a, b, c) {
-    let D = b*b - 4*a*c;
-    if(D < 0)
+    let D = b * b - 4 * a * c;
+    if (D < 0)
         return null;
     return [
-        (-b + Math.sqrt(D))/ (2*a),
-        (-b - Math.sqrt(D))/ (2*a)
+        (-b + Math.sqrt(D)) / (2 * a),
+        (-b - Math.sqrt(D)) / (2 * a)
     ]
 }
 function determinant(matrix2x2) {

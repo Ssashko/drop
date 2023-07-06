@@ -42,13 +42,10 @@ class QuadrangleCut {
     constructor(pointCloud, type) {
         this.reloadCut(pointCloud, type);
         this._pointCloud = pointCloud;
-    }
-    changeOffset(offset) {
-        this.offset = offset;
-    }
-    reloadCut(pointCloud, type) {
         this.offset = 0.03;
+    }
 
+    reloadCut(pointCloud, type) {
         this.cut = new MinimumCircumscribeCut(pointCloud.getPoints());
         this.cut.makeOffset(this.offset);
         if (type === QuadrangleCut.Type.Optimal)
