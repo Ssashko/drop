@@ -39,24 +39,22 @@ class QuadrangleCut {
         "Optimal": 1
     }
 
-    constructor(pointCloud, type) {
-        this.reloadCut(pointCloud, type);
+    constructor(pointCloud, options) {
+        this.reloadCut(pointCloud, options);
         this._pointCloud = pointCloud;
     }
     changeOffset(offset) {
         this.offset = offset;
     }
-    reloadCut(pointCloud, type) {
+    reloadCut(pointCloud, options) {
         this.offset = 0.03;
 
-        this.cut = new MinimumCircumscribeCut(pointCloud.getPoints());
-        this.cut.makeOffset(this.offset);
-        if (type === QuadrangleCut.Type.Optimal)
-            this.cut.tryGenOptimalCut();
-        else
-            this.cut.genStandartCut();
+        let convexhull = ConvexHull.create(pointCloud.getPoints()).getPolygon();
+        convexhull.makeOffset(this.offset);
+        this.task = new Task(convexhull, options);
 
-        this._vertices = this.cut.getCut();
+        this.task.exec();
+        this._vertices = this.task.getCut().getListVertices();
     }
     getVertices() {
         return this._vertices;

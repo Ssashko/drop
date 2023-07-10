@@ -45,7 +45,14 @@ class Scene {
 
         this.pointCloud = new PointCloud();
         this.pointCloud.genRandPoints();
-        this.quadrangleCut = new QuadrangleCut(this.pointCloud, QuadrangleCut.Type.Optimal);
+
+        this.options = {
+            standart: false,
+            heuristic_method: false,
+            numerical_method: true
+        }
+
+        this.quadrangleCut = new QuadrangleCut(this.pointCloud, this.options);
 
         var stage = new Konva.Stage({
             container: 'viewport',
@@ -83,9 +90,10 @@ class Scene {
         this.setFlap();
 
         this.target = null;
+
     }
     updateCut(type) {
-        this.quadrangleCut.reloadCut(this.pointCloud, type);
+        this.quadrangleCut.reloadCut(this.pointCloud, this.options);
     }
     updateViewportSize() {
         const viewportSide = Math.min(window.innerWidth, window.innerHeight);
@@ -503,7 +511,7 @@ class Scene {
 
     updateQuadrangleCut(buildNewQuadrangleCut, isPointsCloudEditingModeEnabled, quadrangleType) {
         if (buildNewQuadrangleCut) {
-            this.quadrangleCut = new QuadrangleCut(this.pointCloud, quadrangleType);
+            this.quadrangleCut = new QuadrangleCut(this.pointCloud, this.options);
             let vertices = this.quadrangleCut.getVertices().map(vertex => this.normalCoordinateToViewport(vertex));
 
             for (let i = 0; i < vertices.length; i++) {
