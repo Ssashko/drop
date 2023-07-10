@@ -45,20 +45,23 @@ class PointsCloud {
 }
 
 class QuadrangleCut {
-  constructor(pointsCloud, buildingMethods, normalOffset) {
+  constructor(pointsCloud, options, normalOffset) {
     this.offset = normalOffset;
-    this.reloadCut(pointsCloud, buildingMethods);
+    this.reloadCut(pointsCloud, options);
     this._pointsCloud = pointsCloud;
   }
 
-  reloadCut(pointCloud, buildingMethods) {
-    // TODO
+  changeOffset(offset) {
+    this.offset = offset;
+  }
 
-    this.cut = new MinimumCircumscribeCut(pointCloud.getPoints());
-    this.cut.makeOffset(this.offset);
-    this.cut.tryGenOptimalCut();
+  reloadCut(pointCloud, options) {
+    let convexhull = ConvexHull.create(pointCloud.getPoints()).getPolygon();
+    convexhull.makeOffset(this.offset);
+    this.task = new Task(convexhull, options);
 
-    this._vertices = this.cut.getCut();
+    this.task.exec();
+    this._vertices = this.task.getCut().getListVertices();
   }
 
   getVertices() {
@@ -1420,17 +1423,19 @@ class Settings {
         'htmlId': "build-min-quadrangle",
         onClick(e, scene) {
           Settings.enableQuadrangleEditingMode();
-          let buildingMethods = {};
-          for (const id in Settings.InitialData["quadrangle-build-algorithms"])
-            buildingMethods[id] = document.getElementById(id).checked;
+          const buildingMethods = {
+            standart: document.getElementById("classic-rhombus").checked,
+            heuristic_method: document.getElementById("geometric-method").checked,
+            numerical_method: document.getElementById("numerical-method").checked
+          };
           scene.buildQuadrangle(buildingMethods);
         },
       },
     ],
     'quadrangle-build-algorithms': {
-      'classic-rhombus': true,
-      'geometric-method': true,
-      'numerical-method': false,
+      standart: true,
+      heuristic_method: true,
+      numerical_method: false,
     }
   }
 
