@@ -39,31 +39,24 @@ class PointsCloud {
   }
 
   movePoint(index, newNormalPoint) {
-    this._points[index] = newNormalPoint;
+    this._points[index].x = newNormalPoint.x;
+    this._points[index].y = newNormalPoint.y;
   }
 }
 
 class QuadrangleCut {
-  static Type = {
-    "Rhombus": 0,
-    "Optimal": 1
-  }
-
-  constructor(pointsCloud, type) {
-    this.reloadCut(pointsCloud, type);
+  constructor(pointsCloud, buildingMethods, normalOffset) {
+    this.offset = normalOffset;
+    this.reloadCut(pointsCloud, buildingMethods);
     this._pointsCloud = pointsCloud;
-    this.offset = 0.03;
   }
 
-  reloadCut(pointCloud, type) {
-    this.offset = 0.03;
+  reloadCut(pointCloud, buildingMethods) {
+    // TODO
 
     this.cut = new MinimumCircumscribeCut(pointCloud.getPoints());
     this.cut.makeOffset(this.offset);
-    if (type === QuadrangleCut.Type.Optimal)
-      this.cut.tryGenOptimalCut();
-    else
-      this.cut.genStandartCut();
+    this.cut.tryGenOptimalCut();
 
     this._vertices = this.cut.getCut();
   }
@@ -91,8 +84,17 @@ class QuadrangleCut {
         'center': innerVertex,
         'radius': roundedConvexHull.normalOffset,
       };
-      for (const quadrangleVertex of this._vertices) {
-        if (this.isPointInCircle(quadrangleVertex, circle))
+      for (let i = 0; i < this._vertices.length; i++) {
+        const nextI = (i + 1) % this._vertices.length;
+        const segment = {
+          startPoint: this._vertices[i],
+          endPoint: this._vertices[nextI],
+        }
+        const distance = Math.abs((segment.endPoint.x - segment.startPoint.x) * (circle.center.y - segment.startPoint.y)
+          - (segment.endPoint.y - segment.startPoint.y) * (circle.center.x - segment.startPoint.x))
+          / Math.sqrt((segment.endPoint.x - segment.startPoint.x) * (segment.endPoint.x - segment.startPoint.x)
+            + (segment.endPoint.y - segment.startPoint.y) * (segment.endPoint.y - segment.startPoint.y));
+        if (distance < circle.radius)
           return false;
       }
     }
@@ -307,7 +309,21 @@ class Scene {
     this.settings = new Settings(this);
     this.pointsCloud = new PointsCloud();
     this.pointsCloud.genRandPoints();
-    this.quadrangleCut = new QuadrangleCut(this.pointsCloud, QuadrangleCut.Type.Optimal);
+    this.axisNormalOffset = 0.07;
+    this.axisData = {
+      "vertical": {
+        "viewportLength": (this.extends.normal.h - 2 * this.axisNormalOffset) * this.extends.unitsCoef(),
+        "start": this.extends.toViewport(0, 1 - this.axisNormalOffset),
+      },
+      "horizontal": {
+        "viewportLength": (this.extends.normal.w - 3 * this.axisNormalOffset) * this.extends.unitsCoef(),
+        "start": this.extends.toViewport(-1 + this.axisNormalOffset, -1 + this.axisNormalOffset),
+      },
+    };
+    this.normalOffset = (this.axisData.vertical.viewportLength / this.settings["axis-length"])
+      / this.extends.unitsCoef() * 0.4;
+    this.quadrangleCut = new QuadrangleCut(this.pointsCloud,
+      Settings.InitialData["quadrangle-build-algorithms"], this.normalOffset + 0.01);
 
     this.setKonvaInitialObjects();
 
@@ -400,17 +416,7 @@ class Scene {
   setAxes() {
     const layer = this.konvaStrategy.layers.middle;
     const axesLabels = this.konvaStrategy.changeableObjectsStorage.metrics.axesLabels;
-    this.axisNormalOffset = 0.07;
-    let data = this.axisData = {
-      "vertical": {
-        "viewportLength": (this.extends.normal.h - 2 * this.axisNormalOffset) * this.extends.unitsCoef(),
-        "start": this.extends.toViewport(0, 1 - this.axisNormalOffset),
-      },
-      "horizontal": {
-        "viewportLength": (this.extends.normal.w - 3 * this.axisNormalOffset) * this.extends.unitsCoef(),
-        "start": this.extends.toViewport(-1 + this.axisNormalOffset, -1 + this.axisNormalOffset),
-      },
-    };
+    let data = this.axisData;
     var verticalAxis = new Konva.Line({
       points: [
         data.vertical.start.x, data.vertical.start.y,
@@ -511,15 +517,13 @@ class Scene {
       closed: true,
       visible: false,
     });
-    this.konvaStrategy.layers.middle.add(storage.innerConvexHull);
+    this.konvaStrategy.layers.background.add(storage.innerConvexHull);
     return convhull;
   }
 
   setRoundedOuterConvexHull(innerConvexHull, color) {
     const representation = this.konvaStrategy.changeableObjectsStorage.roundedOuterConvexHull;
-    const normalOffset = (this.axisData.vertical.viewportLength / this.settings["axis-length"])
-      / this.extends.unitsCoef() * 0.4;
-    const roundedConvexHull = this.normalRoundedConvexHull = new RoundedConvexHull(innerConvexHull, normalOffset);
+    const roundedConvexHull = this.normalRoundedConvexHull = new RoundedConvexHull(innerConvexHull, this.normalOffset);
     for (let i = 0; i < roundedConvexHull.segments.length; i++) {
       const segment = roundedConvexHull.segments[i];
       const viewportStartPoint = this.extends.toViewport(segment.startPoint.x, segment.startPoint.y);
@@ -565,7 +569,7 @@ class Scene {
         // fill: 'yellow',
       });
       representation.arcs.push(arc);
-      this.konvaStrategy.layers.middle.add(arc);
+      this.konvaStrategy.layers.background.add(arc);
     }
   }
 
@@ -962,7 +966,6 @@ class Scene {
     wedge.angle(wedgeParams.angle);
     wedge.rotation(wedgeParams.rotation);
     wedge.visible(this.settings["are-metrics-shown"] && this.currentMode == Scene.Modes.QuadrangleEditing);
-    wedge.draw();
 
     const angleTextParams = newViewportAngle.getTextParams()
     const viewportAnchor = this.extends.toViewport(angleTextParams.x, angleTextParams.y);
@@ -971,7 +974,6 @@ class Scene {
     text.y(viewportAnchor.y);
     text.text(angleTextParams.text);
     text.visible(this.settings["are-metrics-shown"] && this.currentMode == Scene.Modes.QuadrangleEditing);
-    text.draw();
   }
 
   updateFlap(updatePosition) {
@@ -1096,6 +1098,10 @@ class Scene {
     }
     gridLines = [];
     this.generateBackgroundGrid(newValue);
+    this.updateConvexHull(this.currentMode == Scene.Modes.QuadrangleEditing);
+    this.updateAngles();
+    this.updateFlap();
+    this.updateVertexDistances();
   }
 
   changeRadiusOfPointsCloud(newValue) {
@@ -1201,7 +1207,7 @@ class Scene {
 
   showCurrentQuadrangle(visible) {
     const storage = this.konvaStrategy.changeableObjectsStorage;
-    const lineColor = this.quadrangleCut.isValid() ? Color.green : Color.red;
+    const lineColor = this.quadrangleCut.isValid(this.normalRoundedConvexHull) ? Color.green : Color.red;
     for (let i = 0; i < storage.quadrangle.vertices.length; i++) {
       storage.quadrangle.vertices[i].visible(visible);
       storage.quadrangle.lines[i].visible(visible);
@@ -1238,13 +1244,13 @@ class Scene {
       representation.arcs[i].visible(visible);
     }
 
-    this.konvaStrategy.layers.middle.draw();
+    this.konvaStrategy.layers.background.draw();
   }
 
-  buildQuadrangle(quadrangleType) {
+  buildQuadrangle(buildingMethods) {
     this.currentMode = Scene.Modes.QuadrangleEditing;
     this.toggleCursor();
-    this.quadrangleCut = new QuadrangleCut(this.pointsCloud, quadrangleType);
+    this.quadrangleCut = new QuadrangleCut(this.pointsCloud, buildingMethods, this.normalOffset + 0.01);
     const viewportVertices = this.quadrangleCut.getVertices().map(vertex => this.extends.toViewport(vertex.x, vertex.y));
     const viewportQuadrangle = this.konvaStrategy.changeableObjectsStorage.quadrangle;
     const viewportMetrics = this.konvaStrategy.changeableObjectsStorage.metrics;
@@ -1414,17 +1420,18 @@ class Settings {
         'htmlId': "build-min-quadrangle",
         onClick(e, scene) {
           Settings.enableQuadrangleEditingMode();
-          scene.buildQuadrangle(QuadrangleCut.Type.Optimal);
+          let buildingMethods = {};
+          for (const id in Settings.InitialData["quadrangle-build-algorithms"])
+            buildingMethods[id] = document.getElementById(id).checked;
+          scene.buildQuadrangle(buildingMethods);
         },
       },
-      {
-        'htmlId': "build-min-rhombus",
-        onClick(e, scene) {
-          Settings.enableQuadrangleEditingMode();
-          scene.buildQuadrangle(QuadrangleCut.Type.Rhombus);
-        }
-      },
-    ]
+    ],
+    'quadrangle-build-algorithms': {
+      'classic-rhombus': true,
+      'geometric-method': true,
+      'numerical-method': false,
+    }
   }
 
   static onInputChange(e, newValue, onValidNewValue) {
