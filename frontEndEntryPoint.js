@@ -7,7 +7,86 @@ const Color = {
   white: "#ffffff",
   black: "#000",
 };
+let lastCallback = null;
+function SetTerminateCallback(callback)
+{
+  lastCallback = callback;
+  document.getElementById("terminate-loader").onclick = (e) => {
+    console.log("Terminated");
+    callback(e);
+  };
+}
+class ParseParams {
+  constructor() {
+    this.restrictions = {
+      rightAngle: getRangeById("right-angle-range").map(toRadians),
+      bottomAngle: getRangeById("bot-angle-range").map(toRadians),
+      leftAngle: getRangeById("left-angle-range").map(toRadians),
+      topAngle: getRangeById("top-angle-range").map(toRadians),
+      Yangle: getRangeById("yangle-angle-range").map(toRadians)
+    }
+    this.numericalSpeedType = document.querySelector('input[name="numeric-method-type"]:checked').value == "fast-standart-numeric" ? "fast" : "standart";
+    this.numericalMethodStep = Number.parseFloat(document.getElementById("step-numerical-method").value);
+    this.numericalDeltoidMethodStep = Number.parseFloat(document.getElementById("step-deltoid-numeric").value);
+  }
+  static create()
+  {
+    return new ParseParams();
+  }
+}
+class Loader {
+  constructor()
+  {
+      this.status = 0;
+      this.time = Date.now();
+      this.start_time = null;
+      this.velocity = 0;
+  }
+  showLoader()
+  {
+      this.#updateLoader();
 
+      document.getElementById("loader").style.display = "flex";
+      document.getElementById("time-left").innerText = "-";
+  }
+  hideLoader()
+  {
+      this.start_time = null;
+      this.velocity = 0;
+      document.getElementById("loader").style.display = "none";
+      document.getElementById("time-left").innerText = "-";
+  }
+  #updateLoader() {
+      document.getElementById("loader-value").innerText = Math.round(this.status);
+  }
+  #setTimer() {
+    let velocity = this.status / ((this.time - this.start_time) / 1000);
+    let leftStatus = 100 - this.status;
+    let left_time = Math.round(leftStatus / velocity);
+    let result = ""
+    if(Math.floor(left_time / 3600) != 0)
+      result += Math.floor(left_time / 3600) + " год, ";
+    left_time %= 3600;
+    if(Math.floor(left_time / 60) != 0)
+      result += Math.floor(left_time / 60) + " хв, ";
+    left_time %= 60;
+    result += left_time + " сек.";
+
+    document.getElementById("time-left").innerText = result;
+  }
+
+  updateStatus(value)
+  {
+    if(this.start_time == null)
+      this.start_time = Date.now();
+    this.time = Date.now();
+    this.status = value;
+    this.#updateLoader();
+    if((this.time - this.start_time)%3000 > 2500)
+      this.#setTimer();
+  }
+}
+let loader = new Loader(0, 100);
 class PointsCloud {
   constructor() {
     this._points = [];
@@ -29,7 +108,7 @@ class PointsCloud {
       (Math.random() > 0.5 ? -1 : 1) * Math.random() / 5
     );
   }
-
+  
   add(normalCoords) {
     this._points.push(Point.create(normalCoords));
   }
@@ -45,22 +124,20 @@ class PointsCloud {
 }
 
 class QuadrangleCut {
-  constructor(pointsCloud, options, normalOffset) {
+  constructor(normalOffset) {
     this.offset = normalOffset;
-    this.reloadCut(pointsCloud, options);
-    this._pointsCloud = pointsCloud;
   }
 
   changeOffset(offset) {
     this.offset = offset;
   }
 
-  reloadCut(pointCloud, options) {
+  async reloadCut(pointCloud, options) {
     let convexhull = ConvexHull.create(pointCloud.getPoints()).getPolygon();
     convexhull.makeOffset(this.offset);
-    this.task = new Task(convexhull, options);
+    this.task = new Task(convexhull, options, loader);
 
-    this.task.exec();
+    await this.task.exec();
     this._vertices = this.task.getCut().getListVertices();
   }
 
@@ -325,14 +402,16 @@ class Scene {
     };
     this.normalOffset = (this.axisData.vertical.viewportLength / this.settings["axis-length"])
       / this.extends.unitsCoef() * 0.4;
-    this.quadrangleCut = new QuadrangleCut(this.pointsCloud,
-      Settings.InitialData["quadrangle-build-algorithms"], this.normalOffset + 0.01);
-
-    this.setKonvaInitialObjects();
-
-    this.target = null;
+    this.quadrangleCut = new QuadrangleCut(this.normalOffset + 0.01);
+    
   }
 
+  async constructorShard() {
+    await this.quadrangleCut.reloadCut(this.pointsCloud,
+      Settings.InitialData["quadrangle-build-algorithms"]);
+    this.setKonvaInitialObjects();
+    this.target = null;
+  }
   setKonvaInitialObjects() {
     let stage = new Konva.Stage({
       container: 'viewport',
@@ -1250,10 +1329,11 @@ class Scene {
     this.konvaStrategy.layers.background.draw();
   }
 
-  buildQuadrangle(buildingMethods) {
+  async buildQuadrangle(buildingMethods) {
     this.currentMode = Scene.Modes.QuadrangleEditing;
     this.toggleCursor();
-    this.quadrangleCut = new QuadrangleCut(this.pointsCloud, buildingMethods, this.normalOffset + 0.01);
+    this.quadrangleCut = new QuadrangleCut(this.normalOffset + 0.01);
+    await this.quadrangleCut.reloadCut(this.pointsCloud, buildingMethods);
     const viewportVertices = this.quadrangleCut.getVertices().map(vertex => this.extends.toViewport(vertex.x, vertex.y));
     const viewportQuadrangle = this.konvaStrategy.changeableObjectsStorage.quadrangle;
     const viewportMetrics = this.konvaStrategy.changeableObjectsStorage.metrics;
@@ -1421,14 +1501,16 @@ class Settings {
       },
       {
         'htmlId': "build-min-quadrangle",
-        onClick(e, scene) {
+        async onClick(e, scene) {
           Settings.enableQuadrangleEditingMode();
           const buildingMethods = {
             standart: document.getElementById("classic-rhombus").checked,
             heuristic_method: document.getElementById("geometric-method").checked,
-            numerical_method: document.getElementById("numerical-method").checked
+            numerical_method: document.getElementById("numerical-method").checked,
+            numerical_deltoid_method: document.getElementById("deltoid-numeric").checked,
+            params: ParseParams.create()
           };
-          scene.buildQuadrangle(buildingMethods);
+          await scene.buildQuadrangle(buildingMethods);
         },
       },
     ],
@@ -1436,6 +1518,8 @@ class Settings {
       standart: true,
       heuristic_method: true,
       numerical_method: false,
+      numerical_deltoid_method: false,
+      params: ParseParams.create()
     }
   }
 
@@ -1483,4 +1567,4 @@ class Settings {
 }
 
 const scene = new Scene();
-
+let scenePromice = scene.constructorShard();

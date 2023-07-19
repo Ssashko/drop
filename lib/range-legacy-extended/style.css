@@ -1,0 +1,41 @@
+.custom-range{
+	position: relative;
+	width: 140px;
+	height: 15px;
+	display: flex;
+	justify-content: center;
+	align-items: center;
+}
+.custrange-line {
+	width: 130px;
+	height: 5px;
+	border: 1px solid black;
+	border-radius: 5px;
+	background-color: darkgrey;
+}
+.custrange-right-bound, .custrange-left-bound {
+	width: 12px;
+	height: 12px;
+	border-radius: 12px;
+	background-color: red;
+	position: absolute;
+	right: 0px;
+	border: 3px solid red;
+	cursor: pointer;
+	
+}
+.custrange-right-bound > span, .custrange-left-bound > span{
+	position: absolute;
+	top: -15px;
+	font-family: 'Roboto', sans-serif;
+	font-size: 10px;
+	background-color: white;
+	border-radius: 10px;
+	padding: 0 5px;
+	
+}
+.custrange-left-bound {
+	left: 0px;
+	border: 3px solid green;
+	background-color: green;
+}
