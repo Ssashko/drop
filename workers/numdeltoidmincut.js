@@ -1,10 +1,10 @@
-importScripts("/lib/geometry/convexhull.js",
-"/lib/geometry/line.js",
-"/lib/geometry/point.js",
-"/lib/geometry/vector.js",
-"/lib/geometry/polygon.js",
-"/lib/geometry/miscellaneous.js",
-"/lib/numdeltoidmincut.js");
+importScripts("../lib/geometry/convexhull.js",
+"../lib/geometry/line.js",
+"../lib/geometry/point.js",
+"../lib/geometry/vector.js",
+"../lib/geometry/polygon.js",
+"../lib/geometry/miscellaneous.js",
+"../lib/numdeltoidmincut.js");
 
 
 self.addEventListener("message", function(e){
