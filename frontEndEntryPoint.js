@@ -8,8 +8,7 @@ const Color = {
   black: "#000",
 };
 let lastCallback = null;
-function SetTerminateCallback(callback)
-{
+function SetTerminateCallback(callback) {
   lastCallback = callback;
   document.getElementById("terminate-loader").onclick = (e) => {
     console.log("Terminated");
@@ -29,45 +28,41 @@ class ParseParams {
     this.numericalMethodStep = Number.parseFloat(document.getElementById("step-numerical-method").value);
     this.numericalDeltoidMethodStep = Number.parseFloat(document.getElementById("step-deltoid-numeric").value);
   }
-  static create()
-  {
+  static create() {
     return new ParseParams();
   }
 }
 class Loader {
-  constructor()
-  {
-      this.status = 0;
-      this.time = Date.now();
-      this.start_time = null;
-      this.velocity = 0;
+  constructor() {
+    this.status = 0;
+    this.time = Date.now();
+    this.start_time = null;
+    this.velocity = 0;
   }
-  showLoader()
-  {
-      this.#updateLoader();
+  showLoader() {
+    this.#updateLoader();
 
-      document.getElementById("loader").style.display = "flex";
-      document.getElementById("time-left").innerText = "-";
+    document.getElementById("loader").style.display = "flex";
+    document.getElementById("time-left").innerText = "-";
   }
-  hideLoader()
-  {
-      this.start_time = null;
-      this.velocity = 0;
-      document.getElementById("loader").style.display = "none";
-      document.getElementById("time-left").innerText = "-";
+  hideLoader() {
+    this.start_time = null;
+    this.velocity = 0;
+    document.getElementById("loader").style.display = "none";
+    document.getElementById("time-left").innerText = "-";
   }
   #updateLoader() {
-      document.getElementById("loader-value").innerText = Math.round(this.status);
+    document.getElementById("loader-value").innerText = Math.round(this.status);
   }
   #setTimer() {
     let velocity = this.status / ((this.time - this.start_time) / 1000);
     let leftStatus = 100 - this.status;
     let left_time = Math.round(leftStatus / velocity);
     let result = ""
-    if(Math.floor(left_time / 3600) != 0)
+    if (Math.floor(left_time / 3600) != 0)
       result += Math.floor(left_time / 3600) + " год, ";
     left_time %= 3600;
-    if(Math.floor(left_time / 60) != 0)
+    if (Math.floor(left_time / 60) != 0)
       result += Math.floor(left_time / 60) + " хв, ";
     left_time %= 60;
     result += left_time + " сек.";
@@ -75,14 +70,13 @@ class Loader {
     document.getElementById("time-left").innerText = result;
   }
 
-  updateStatus(value)
-  {
-    if(this.start_time == null)
+  updateStatus(value) {
+    if (this.start_time == null)
       this.start_time = Date.now();
     this.time = Date.now();
     this.status = value;
     this.#updateLoader();
-    if((this.time - this.start_time)%3000 > 2500)
+    if ((this.time - this.start_time) % 3000 > 2500)
       this.#setTimer();
   }
 }
@@ -97,7 +91,8 @@ class PointsCloud {
   }
 
   genRandPoints() {
-    const count = Math.ceil(Math.random() * 7) + 2;
+    // const count = Math.ceil(Math.random() * 7) + 2;
+    const count = 3;
     for (let i = 0; i < count; i++)
       this._points.push(this.genRandPoint());
   }
@@ -108,7 +103,7 @@ class PointsCloud {
       (Math.random() > 0.5 ? -1 : 1) * Math.random() / 5
     );
   }
-  
+
   add(normalCoords) {
     this._points.push(Point.create(normalCoords));
   }
@@ -324,6 +319,13 @@ class Scene {
             'line': null,
             'text': null,
           }
+        },
+        'horizontalAxis': {
+          'line': null,
+          'divisions': {
+            7: [],
+            5: [],
+          },
         }
       }
     }
@@ -403,7 +405,8 @@ class Scene {
     this.normalOffset = (this.axisData.vertical.viewportLength / this.settings["axis-length"])
       / this.extends.unitsCoef() * 0.4;
     this.quadrangleCut = new QuadrangleCut(this.normalOffset + 0.01);
-    
+    this.isHorizontalAxisSelected = false;
+    this.hasBeenClickTouched = false;
   }
 
   async constructorShard() {
@@ -547,6 +550,7 @@ class Scene {
       strokeWidth: 3,
     });
     layer.add(horizontalAxis);
+    this.konvaStrategy.changeableObjectsStorage.horizontalAxis.line = horizontalAxis;
     divisions = {
       7: [0, 2 / 6, 4 / 6, 1],
       5: [2 / 18, 4 / 18, 8 / 18, 10 / 18, 14 / 18, 16 / 18]
@@ -563,6 +567,7 @@ class Scene {
           strokeWidth: divisionHeight,
         });
         layer.add(division);
+        this.konvaStrategy.changeableObjectsStorage.horizontalAxis.divisions[key].push(division);
       }
     }
     var v = this.settings["axis-length"];
@@ -580,6 +585,42 @@ class Scene {
     v = this.settings["axis-length"] / 2;
     axesLabels.left.text(`${v.toFixed(0)} см`);
     layer.add(axesLabels.left);
+  }
+
+  dragWholeHorizontalAxisObjects(e) {
+    const viewportMouseCoords = this.extractViewportCoords(e);
+    const verticalAxisData = this.axisData.vertical;
+    const limitsPx = {
+      min: verticalAxisData.start.y,
+      max: verticalAxisData.start.y + verticalAxisData.viewportLength,
+    };
+    if (viewportMouseCoords.y <= limitsPx.min || viewportMouseCoords.y >= limitsPx.max) {
+      console.log("dragWholeHorizontalAxisObjects: mouse over limits");
+      return;
+    }
+    const horizontalAxis = this.konvaStrategy.changeableObjectsStorage.horizontalAxis;
+    let points = horizontalAxis.line.points();
+    points[1] = viewportMouseCoords.y;
+    points[3] = viewportMouseCoords.y;
+    horizontalAxis.line.points(points);
+    horizontalAxis.line.draw();
+    for (let key in horizontalAxis.divisions) {
+      const divisionHeight = Number.parseInt(key) * this.extends.unitsCoef() / 400;
+      for (const division of horizontalAxis.divisions[key]) {
+        points = division.points();
+        points[1] = viewportMouseCoords.y - divisionHeight;
+        points[3] = viewportMouseCoords.y + divisionHeight;
+        division.points(points);
+        division.draw();
+      }
+    }
+    const metrics = this.konvaStrategy.changeableObjectsStorage.metrics.axesLabels;
+    let fontHeight = Math.round(this.extends.unitsCoef() * (this.axisNormalOffset - 0.02));
+    metrics.left.y(viewportMouseCoords.y - fontHeight - 5);
+    metrics.left.draw();
+    metrics.right.y(viewportMouseCoords.y - fontHeight - 5);
+    metrics.right.draw();
+    this.axisData.horizontal.start.y = viewportMouseCoords.y;
   }
 
   setConvexHull(color) {
@@ -663,11 +704,11 @@ class Scene {
     let viewport = document.getElementById("viewport");
     viewport.addEventListener("mousedown", (e) => this.handleClickTouch(e));
     viewport.addEventListener("touchstart", (e) => this.handleClickTouch(e));
-    viewport.addEventListener("mousemove", (e) => this.onExistingPointMove(e));
-    viewport.addEventListener("touchmove", (e) => this.onExistingPointMove(e));
+    viewport.addEventListener("mousemove", (e) => this.onViewportMouseTouchMove(e));
+    viewport.addEventListener("touchmove", (e) => this.onViewportMouseTouchMove(e));
     document.getElementById("trash-can-icon").addEventListener("mouseup", (e) => this.deleteTargetPointCloud(e));
-    viewport.addEventListener("mouseup", (e) => this.onPointMovementCompletion(e));
-    viewport.addEventListener("touchend", (e) => this.onPointMovementCompletion(e));
+    viewport.addEventListener("mouseup", (e) => this.onViewportMouseUpTouchEnd(e));
+    viewport.addEventListener("touchend", (e) => this.onViewportMouseUpTouchEnd(e));
   }
 
   buildPointCloudRepresentation(viewportCoords) {
@@ -703,24 +744,49 @@ class Scene {
     if (this.currentMode == Scene.Modes.QuadrangleEditing)
       return;
 
+    this.hasBeenClickTouched = true;
     if (this.target == null) {
-      let viewportCoords = { x: undefined, y: undefined };
-      if (e instanceof MouseEvent) {
-        viewportCoords.x = e.offsetX;
-        viewportCoords.y = e.offsetY;
+      if (this.horizontalAxisHasBeenSelected(e)) {
+        console.log(`horizontal axis has been selected`);
+        this.isHorizontalAxisSelected = true;
+        return;
       }
-      else if (e instanceof TouchEvent) {
-        viewportCoords.x = e.touches[0].offsetX;
-        viewportCoords.y = e.touches[0].offsetY;
-      }
-      this.buildPointCloudRepresentation(viewportCoords);
-      this.pointsCloud.add(
-        this.extends.toNormal(viewportCoords.x, viewportCoords.y)
-      )
-      console.log("Point has been added ", viewportCoords);
-      return;
+      this.addPoint(e);
+      this.hasBeenClickTouched = false;
     }
     console.log(`An existing point has been moved`);
+  }
+
+  horizontalAxisHasBeenSelected(e) {
+    const viewportMouseCoords = this.extractViewportCoords(e);
+    const axisOffsetPx = 10;
+    return Math.abs(viewportMouseCoords.y - this.axisData.horizontal.start.y) < axisOffsetPx;
+  }
+
+  extractViewportCoords(e) {
+    let viewportCoords = { x: undefined, y: undefined };
+    if (e instanceof MouseEvent) {
+      viewportCoords.x = e.offsetX;
+      viewportCoords.y = e.offsetY;
+    }
+    else if (e instanceof TouchEvent) {
+      viewportCoords.x = e.touches[0].offsetX;
+      viewportCoords.y = e.touches[0].offsetY;
+    }
+    else {
+      console.log("Unexpected event", e);
+    }
+    return viewportCoords;
+  }
+
+  addPoint(e) {
+    const viewportCoords = this.extractViewportCoords(e);
+    this.buildPointCloudRepresentation(viewportCoords);
+    this.pointsCloud.add(
+      this.extends.toNormal(viewportCoords.x, viewportCoords.y)
+    )
+    console.log("Point has been added ", viewportCoords);
+    return;
   }
 
   onExistingPointClickTouch(e) {
@@ -758,9 +824,20 @@ class Scene {
     return targetIndex;
   }
 
-  onExistingPointMove(e) {
-    if (this.target == null || this.currentMode == Scene.Modes.QuadrangleEditing)
+  onViewportMouseTouchMove(e) {
+    if (!this.hasBeenClickTouched)
       return;
+
+    if (this.currentMode == Scene.Modes.QuadrangleEditing)
+      return;
+    else if (this.target == null && !this.isHorizontalAxisSelected) {
+      this.addPoint(e);
+      return;
+    }
+    else if (this.target == null && this.isHorizontalAxisSelected) {
+      this.dragWholeHorizontalAxisObjects(e);
+      return;
+    }
 
     let point = this.konvaStrategy.changeableObjectsStorage.pointsCloud[this.target];
     if (e instanceof MouseEvent) {
@@ -781,7 +858,9 @@ class Scene {
     point.draw();
   }
 
-  onPointMovementCompletion(e) {
+  onViewportMouseUpTouchEnd(e) {
+    this.hasBeenClickTouched = false;
+    this.isHorizontalAxisSelected = false;
     if (this.target == null || this.currentMode == Scene.Modes.QuadrangleEditing)
       return;
 
@@ -831,6 +910,7 @@ class Scene {
   onCursorMove(e) {
     const distanceCoef = this.settings["axis-length"] / this.axisData.vertical.viewportLength;
     const axisCenter = this.extends.toViewport(0, -1 + this.axisNormalOffset);
+    axisCenter.y = this.axisData.horizontal.start.y;
     const visible = this.settings["are-metrics-shown"] && this.currentMode == Scene.Modes.PointsCloudEditing;
     let cursorDistances = this.konvaStrategy.changeableObjectsStorage.cursorDistances;
     cursorDistances.vertical.line.points([
@@ -841,7 +921,7 @@ class Scene {
     cursorDistances.vertical.line.draw();
     cursorDistances.vertical.text.x(e.offsetX + 5);
     cursorDistances.vertical.text.y((axisCenter.y + e.offsetY - this.textView.avgViewportHeight) / 2);
-    cursorDistances.vertical.text.text(`${(Math.abs(e.offsetY - axisCenter.y) * distanceCoef).toFixed(2)} см`);
+    cursorDistances.vertical.text.text(`${(Math.abs(e.offsetY - axisCenter.y) * distanceCoef).toFixed(1)} см`);
     cursorDistances.vertical.text.visible(visible);
     cursorDistances.vertical.text.draw();
 
@@ -853,7 +933,7 @@ class Scene {
     cursorDistances.horizontal.line.draw();
     cursorDistances.horizontal.text.x((axisCenter.x + e.offsetX - this.textView.avgViewportWidth) / 2);
     cursorDistances.horizontal.text.y(e.offsetY + 5);
-    cursorDistances.horizontal.text.text(`${(Math.abs(e.offsetX - axisCenter.x) * distanceCoef).toFixed(2)} см`);
+    cursorDistances.horizontal.text.text(`${(Math.abs(e.offsetX - axisCenter.x) * distanceCoef).toFixed(1)} см`);
     cursorDistances.horizontal.text.visible(visible);
     cursorDistances.horizontal.text.draw();
   }
