@@ -752,6 +752,7 @@ class Scene {
         return;
       }
       this.addPoint(e);
+      this.hasBeenClickTouched = false;
     }
     console.log(`An existing point has been moved`);
   }
