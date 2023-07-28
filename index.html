@@ -31,9 +31,59 @@
   <link href="style.css" rel="stylesheet">
   <link href="loader.css" rel="stylesheet">
   <link rel="stylesheet" href="lib/range-legacy-extended/style.css">
+  <link rel="stylesheet" href="modal.css">
 </head>
 
 <body>
+  <div class="modal-wrapper" style="display: none;">
+    <div class="modal-window">
+        <p class="modal-close">&#10006;</p>
+        <div class="modal-window-inner">
+            <h1>Справка</h1>
+            <h2>Введення даних</h2>
+            <div class="modal-image-container">
+              <div class="image-wrapper"><img src="img/help/switch-icon-help.png"><p>Кнопка включення режиму редагування.</p></div>
+              <div class="image-wrapper"><img src="img/help/delete-icon-help.png"><p>Зона видалення точок.</p></div>
+            </div>
+            <p class="info-text">Для введення даних передбачено окремий режим редагування:
+              <ul>
+                <li>Вісь ординат - статична, а вісь абсцис можна перемістити перетягуванням курсора миші.</li> 
+                <li>Точки додаються кліком лівої клавіші миші. Після створення точки її можна перемістити перетягуванням курсора. Для видалення, потрібно перемістити точку в зону видалення.</li>
+              </ul>
+            </p>
+            <h2>Налаштування</h2>
+            <div class="image-wrapper"><img src="img/help/setting-icon-help.png"><p>Кнопка переключення вікна налаштувань.</p></div>
+            <p class="info-text">
+              Для налаштування параметрів відображення, вибору методів обчислення розв'язку та налаштування параметрів пошуку розв'язку потрібно викликати меню кліком відповідної кнопки.
+            </p>
+            <div class="image-wrapper"><img src="img/help/view-setting-help.png"><p>Блок налаштувань відображення.</p></div>
+            <p class="info-text">
+              Меню налаштувань містить блок із редагуванням стилізації відображення.
+            </p>
+            <div class="image-wrapper"><img src="img/help/geo-type-setting-help.png"><p>Блок з нечисельними методами.</p></div>
+            <p class="info-text">            
+              Нечисельні методи пошуку розрізу миттєво дають результат, проте не завжди цей результат є оптимальним. Крім того, налаштування обмежень (градусних мір кутів) недоступно для цих методів.
+              <span class="warning-text">Якщо потрібно накласти деякі обмеження на результат обчислень, слід користуватися чисельними методами.</span>
+            </p>
+            <div class="image-wrapper"><img src="img/help/num-type-setting-help.png"><p>Блок з чисельними методами.</p></div>
+            <p class="info-text">
+              Виконання чисельних методів займає деякий час, тому після старту обчислення відображається статус виконання, де вказано залишок часу до кінця, посилання для завершення обчислення.
+              Оскільки чисельні методи шукають оптимальний розв'язок з деякою точністю, виникає потреба задання деякого кроку. <span class="warning-text">Вибір кроку залежить від потрібної точності і максимально 
+              допустимого часу виконання, тому для зменшення часу виконання потрібно збільшувати крок, а для збільшення точності навпаки - зменшувати.</span>
+            </p>
+            <div class="image-wrapper"><img src="img/help/num-setting-help.png"><p>Блок з налаштуваннями чисельних методів.</p></div>
+            <p class="info-text">
+              Блок налаштувань чисельних методів відповідає всім чисельним методам, тут є можливість обрати підтип алгоритма пошуку: пришвидшений - працює швидше; звичайний - використовується, якщо пришвидшений не знаходить розв`язок.
+              Обмеження на градусні міри задаються відрізками чисел. <span class="warning-text">Кожен метод вмикається прапорцем. Якщо вибрано кілька методів - за результат береться розріз мінімальної площі. Нечисельні методи ігнорують обмеження, тому якщо вони необхідні - деактивуйте відповідні прапорці.</span>
+            </p>
+            <h2>Запуск обчислень</h2>
+            <div class="image-wrapper"><img src="img/help/start-icon-help.png"><p>Кнопка запуску обчислень.</p></div>
+            <p class="info-text">
+              Для пошуку розв'язку потрібно натиснути на кнопку запуску обчислень, після знаходження розв'язку, щоб побачити результат потрібно деактивувати режим редагування.
+            </p>
+        </div>
+    </div>
+  </div>
   <div id="loader">
     <div class="loader-wrapper">
       <div class="lds-roller">
@@ -57,7 +107,9 @@
       <div id="viewport" class="crosshair-cursor"></div>
       <img id="settings-icon" src="settings-icon.svg">
       <img id="build-min-quadrangle" src="run-icon.svg">
-      <img id="toggle-editing-points-mode-btn" src="switch-icon.svg" value="0">
+      <img id="enable-editing-points-mode-btn" style="display: none;" src="switch-icon.svg" value="0">
+      <img id="disable-editing-points-mode-btn" src="eye.svg" value="0">
+      <img id="help-icon" src="img/info.png" value="0">
       <div id="settings">
         <div class="setting">
           <svg width="25" height="25">
@@ -248,6 +300,7 @@
   </div>
   <script src="frontEndEntryPoint.js"></script>
   <script src="controls.js"></script>
+  <script src="modal.js"></script>
 </body>
 
 </html>

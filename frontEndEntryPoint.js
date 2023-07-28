@@ -1563,20 +1563,21 @@ class Settings {
     },
     'buttons': [
       {
-        'htmlId': "toggle-editing-points-mode-btn",
+        'htmlId': "enable-editing-points-mode-btn",
         onClick(e, scene) {
-          const currentMode = e.currentTarget.value == "0" ?
-            Scene.Modes.QuadrangleEditing : Scene.Modes.PointsCloudEditing;
-          scene.switchMode(currentMode);
-          e.currentTarget.value = currentMode;
-          if (currentMode == Scene.Modes.QuadrangleEditing) {
-            document.getElementById("trash-can-icon").style.display = "none";
-            e.currentTarget.innerText = "Ввімкнути режим редагування точок";
-          }
-          else {
-            document.getElementById("trash-can-icon").style.display = "block";
-            e.currentTarget.innerText = "Вимкнути режим редагування точок";
-          }
+          scene.switchMode(Scene.Modes.PointsCloudEditing);
+          document.getElementById("trash-can-icon").style.display = "block";
+          document.getElementById("enable-editing-points-mode-btn").style.display = "none";
+          document.getElementById("disable-editing-points-mode-btn").style.display = "block";
+        },
+      },
+      {
+        'htmlId': "disable-editing-points-mode-btn",
+        onClick(e, scene) {
+          scene.switchMode(Scene.Modes.QuadrangleEditing);
+          document.getElementById("trash-can-icon").style.display = "none";
+          document.getElementById("enable-editing-points-mode-btn").style.display = "block";
+          document.getElementById("disable-editing-points-mode-btn").style.display = "none";
         },
       },
       {
@@ -1617,9 +1618,8 @@ class Settings {
 
   static enableQuadrangleEditingMode() {
     document.getElementById("trash-can-icon").style.display = "none";
-    const toggler = document.getElementById("toggle-editing-points-mode-btn");
-    toggler.innerText = "Ввімкнути режим редагування точок";
-    toggler.value = Scene.Modes.QuadrangleEditing;
+    document.getElementById("enable-editing-points-mode-btn").style.display = "block";
+    document.getElementById("disable-editing-points-mode-btn").style.display = "none";
   }
 
   constructor(scene) {
