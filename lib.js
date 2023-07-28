@@ -12,7 +12,8 @@ class PointCloud {
     }
 
     genRandPoints() {
-        const count = Math.ceil(Math.random() * 7) + 2;
+        // const count = Math.ceil(Math.random() * 7) + 2;
+        const count = 3;
         for (let i = 0; i < count; i++)
             this._points.push(this.genRandPoint());
     }
@@ -39,24 +40,21 @@ class QuadrangleCut {
         "Optimal": 1
     }
 
-    constructor(pointCloud, type) {
-        this.reloadCut(pointCloud, type);
+    constructor(pointCloud, options, normalOffset) {
+        this.offset = normalOffset;
+        this.reloadCut(pointCloud, options);
         this._pointCloud = pointCloud;
     }
     changeOffset(offset) {
         this.offset = offset;
     }
-    reloadCut(pointCloud, type) {
-        this.offset = 0.03;
+    reloadCut(pointCloud, options) {
+        let convexhull = ConvexHull.create(pointCloud.getPoints()).getPolygon();
+        convexhull.makeOffset(this.offset);
+        this.task = new Task(convexhull, options);
 
-        this.cut = new MinimumCircumscribeCut(pointCloud.getPoints());
-        this.cut.makeOffset(this.offset);
-        if (type === QuadrangleCut.Type.Optimal)
-            this.cut.tryGenOptimalCut();
-        else
-            this.cut.genStandartCut();
-
-        this._vertices = this.cut.getCut();
+        this.task.exec();
+        this._vertices = this.task.getCut().getListVertices();
     }
     getVertices() {
         return this._vertices;

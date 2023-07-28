@@ -5,22 +5,59 @@
   <meta charset="UTF-8">
   <meta http-equiv="X-UA-Compatible" content="IE=edge">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Document</title>
-  <script src="lib/convexhull.js"></script>
-  <script src="lib/geometry.js"></script>
-  <script src="lib/mincut.js"></script>
-  <script src="lib.js"></script>
-  <script src="scene.js"></script>
-  <script src="editingPointsCloudMode.js"></script>
+  <title>Project</title>
+
+  <script src="lib/geometry/point.js"></script>
+  <script src="lib/geometry/vector.js"></script>
+  <script src="lib/geometry/line.js"></script>
+  <script src="lib/geometry/matrix.js"></script>
+  <script src="lib/geometry/polygon.js"></script>
+  <script src="lib/geometry/convexhull.js"></script>
+  <script src="lib/geometry/miscellaneous.js"></script>
+
+  <script src="lib/roundedConvexHull.js"></script>
+
+  <script src="lib/heurmincut.js"></script>
+  <script src="lib/nummincut.js"></script>
+  <script src="lib/fastnummincut.js"></script>
+  <script src="lib/standartcut.js"></script>
+  <script src="lib/numdeltoidmincut.js"></script>
+  <script src="lib/taskmanager.js"></script>
+
+  <script src="lib/range-legacy-extended/script.js"></script>
+
   <script src="https://unpkg.com/konva@9/konva.min.js"></script>
+
   <link href="style.css" rel="stylesheet">
+  <link href="loader.css" rel="stylesheet">
+  <link rel="stylesheet" href="lib/range-legacy-extended/style.css">
 </head>
 
 <body>
+  <div id="loader">
+    <div class="loader-wrapper">
+      <div class="lds-roller">
+        <div></div>
+        <div></div>
+        <div></div>
+        <div></div>
+        <div></div>
+        <div></div>
+        <div></div>
+        <div></div>
+      </div>
+      <p class="status-loader"><span id="loader-value">100</span> %</p>
+      <div class="time-loader">Залишилось приблизно часу :<span id="time-left">0</span> </div>
+      <div id="terminate-loader">Припинити обчислення</div>
+    </div>
+  </div>
   <div id="viewport-aligner">
     <div id="viewport-wrapper">
+
       <div id="viewport" class="crosshair-cursor"></div>
       <img id="settings-icon" src="settings-icon.svg">
+      <img id="build-min-quadrangle" src="run-icon.svg">
+      <img id="toggle-editing-points-mode-btn" src="switch-icon.svg" value="0">
       <div id="settings">
         <div class="setting">
           <svg width="25" height="25">
@@ -36,7 +73,14 @@
           <input id="grid-step">
         </div>
         <div class="setting">
-          <div id="line-type" class="dropdown-icon">
+          <svg width="25" height="25">
+            <circle cx="12.5" cy="12.5" r="10" stroke="black" fill="#067391" />
+          </svg>
+          <label>Радіус вхідних точок:</label>
+          <input id="input-points-radius">
+        </div>
+        <div class="setting">
+          <div id="quadrangle-line-type" class="dropdown-icon">
             <div class="current-icon" value="solid">
               <svg width="20" height="25">
                 <g stroke="black">
@@ -58,7 +102,7 @@
             <div class="dropdown-btn">▼</div>
           </div>
           <label>Ширина лінії чотирикутника:</label>
-          <input id="quadrangle-side-width">
+          <input id="lines-width">
         </div>
         <div class="setting">
           <svg width="25" height="25">
@@ -85,48 +129,125 @@
             Відображення довжин та<br>
             градусних мір кутів
           </label>
-          <input id="show-metrics" type="checkbox" checked>
+          <input id="are-metrics-shown" type="checkbox" checked>
         </div>
-        <button id="update-btn" class="settings-btn">Застосувати налаштування</button>
-        <button id="toggle-editing-points-mode-btn" class="settings-btn">Побудувати мін. ромб</button>
-        <button id="build-min-quadrangle" class="settings-btn">Побудувати мін. чотирикутник</button>
+        <div class="setting" style="border-top: 3px solid rgb(220, 220, 220); padding: 5px;">
+          <div></div>
+          <label>Класичний ромб</label>
+          <input id="classic-rhombus" type="checkbox" checked>
+        </div>
+        <div class="setting">
+          <div></div>
+          <label>Геометричний метод</label>
+          <input id="geometric-method" type="checkbox" checked>
+        </div>
+        <div class="setting" style="border-top: 3px solid rgb(220, 220, 220); padding: 5px;">
+          <div></div>
+          <label style="color: red;">Чисельний метод</label>
+          <input id="numerical-method" type="checkbox">
+        </div>
+        <div class="setting">
+          <div></div>
+          <label>Крок</label>
+          <input type="number" id="step-numerical-method" value="0.12" min="0.05" max="0.2" step="0.01">
+        </div>
+        <div class="setting" style="border-top: 3px solid rgb(220, 220, 220); padding: 5px;">
+          <div></div>
+          <label style="color: red;">Чисельний метод (тільки дельтоїди)</label>
+          <input id="deltoid-numeric" type="checkbox">
+        </div>
+        <div class="setting">
+          <div></div>
+          <label>Крок</label>
+          <input type="number" id="step-deltoid-numeric" value="0.04" min="0.01" max="0.1" step="0.01">
+        </div>
+        <div class="setting-header">
+          <div>Налаштування чисельного методу</div>
+        </div>
+        <div class="setting">
+          <div></div>
+          <label>Звичайний метод</label>
+          <input checked name="numeric-method-type" value="standart-numeric" type="radio">
+        </div>
+        <div class="setting">
+          <div></div>
+          <label>Пришвидшений метод</label>
+          <input name="numeric-method-type" value="fast-standart-numeric" type="radio">
+        </div>
+        <div class="setting2">
+          <img src="img/top-angle.png" alt="">
+          <label>Верхній кут</label>
+          <div id="top-angle-range" class="exRange-main" data-range-max="150" , data-range-min="30">
+            <div class="custom-range">
+              <div class="control-el custrange-right-bound"><span></span></div>
+              <div class="custrange-line"></div>
+              <div class="control-el custrange-left-bound"><span></span></div>
+            </div>
+            <input type="range" class="left-bound" hidden="true">
+            <input type="range" class="right-bound" hidden="true">
+          </div>
+        </div>
+        <div class="setting2">
+          <img src="img/left-angle.png" alt="">
+          <label>Лівий кут</label>
+          <div id="left-angle-range" class="exRange-main" data-range-max="150" , data-range-min="30">
+            <div class="custom-range">
+              <div class="control-el custrange-right-bound"><span></span></div>
+              <div class="custrange-line"></div>
+              <div class="control-el custrange-left-bound"><span></span></div>
+            </div>
+            <input type="range" class="left-bound" hidden="true">
+            <input type="range" class="right-bound" hidden="true">
+          </div>
+        </div>
+        <div class="setting2">
+          <img src="img/bot-angle.png" alt="">
+          <label>Нижній кут</label>
+          <div id="bot-angle-range" class="exRange-main" data-range-max="150" , data-range-min="30">
+            <div class="custom-range">
+              <div class="control-el custrange-right-bound"><span></span></div>
+              <div class="custrange-line"></div>
+              <div class="control-el custrange-left-bound"><span></span></div>
+            </div>
+            <input type="range" class="left-bound" hidden="true">
+            <input type="range" class="right-bound" hidden="true">
+          </div>
+        </div>
+        <div class="setting2">
+          <img src="img/right-angle.png" alt="">
+          <label>Правий кут</label>
+          <div id="right-angle-range" class="exRange-main" data-range-max="150" , data-range-min="30">
+            <div class="custom-range">
+              <div class="control-el custrange-right-bound"><span></span></div>
+              <div class="custrange-line"></div>
+              <div class="control-el custrange-left-bound"><span></span></div>
+            </div>
+            <input type="range" class="left-bound" hidden="true">
+            <input type="range" class="right-bound" hidden="true">
+          </div>
+        </div>
+        <div class="setting2">
+          <img src="img/Yangle.png" alt="">
+          <label>Нахил вісі</label>
+          <div id="yangle-angle-range" class="exRange-main" data-range-max="90" , data-range-min="0">
+            <div class="custom-range">
+              <div class="control-el custrange-right-bound"><span></span></div>
+              <div class="custrange-line"></div>
+              <div class="control-el custrange-left-bound"><span></span></div>
+            </div>
+            <input type="range" class="left-bound" hidden="true">
+            <input type="range" class="right-bound" hidden="true">
+          </div>
+        </div>
+        <!-- <button id="toggle-editing-points-mode-btn" class="settings-btn" value="0">Вимкнути режим редагування
+          точок</button> -->
+        <!-- <button id="build-min-quadrangle" class="settings-btn">Побудувати</button> -->
       </div>
       <img id="trash-can-icon" src="trash-can.svg">
-      <script src="controls.js"></script>
     </div>
   </div>
-  <script>
-    const initialSettings = {
-      "gridStep": 4.6,
-      "quadrangleSideWidth": 5,
-      "quadrangleVerticesRadius": 9,
-      "lineType": "solid",
-      "axisLength": 20,
-      "areMetricsShown": true
-    }
-    initializeSettings(initialSettings);
-    let scene = new Scene(initialSettings);
-    let editor = new Editor(scene);
-    document.getElementById("update-btn").addEventListener("click", () => updateSettings(scene));
-    document.getElementById("toggle-editing-points-mode-btn")
-      .addEventListener("click", (e) => {
-        let currentMode = editor.toggle(e, e.currentTarget.value, QuadrangleCut.Type.Standart);
-        document.getElementById("toggle-editing-points-mode-btn").value = !currentMode;
-        document.getElementById("build-min-quadrangle").value = 0;
-        e.currentTarget.innerText = currentMode == Editor.Modes.Enabled ?
-          "Побудувати мін. ромб" : "Ввімкнути режим редагування точок";
-        document.getElementById("build-min-quadrangle").innerText = "Побудувати мін. чотирикутник";
-      });
-    document.getElementById("build-min-quadrangle")
-      .addEventListener("click", (e) => {
-        let currentMode = editor.toggle(e, e.currentTarget.value, QuadrangleCut.Type.Optimal);
-        document.getElementById("build-min-quadrangle").value = !currentMode;
-        document.getElementById("toggle-editing-points-mode-btn").value = 0;
-        e.currentTarget.innerText = currentMode == Editor.Modes.Enabled ?
-          "Побудувати мін. чотирикутник" : "Ввімкнути режим редагування точок";
-        document.getElementById("toggle-editing-points-mode-btn").innerText = "Побудувати мін. ромб";
-      });
-  </script>
+  <script src="frontEndEntryPoint.js"></script>
+  <script src="controls.js"></script>
 </body>
 
 </html>

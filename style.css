@@ -19,7 +19,9 @@ body {
 }
 
 #settings-icon,
-#trash-can-icon {
+#trash-can-icon,
+#build-min-quadrangle,
+#toggle-editing-points-mode-btn {
   position: absolute;
   top: 15px;
   width: 50px;
@@ -34,12 +36,18 @@ body {
   right: 10px;
 }
 
+#build-min-quadrangle {
+  right: calc(10px + 70px);
+}
+
+#toggle-editing-points-mode-btn {
+  right: calc(10px + 2 * 70px);
+}
+
 #trash-can-icon {
   left: 10px;
   height: 45px;
   padding-bottom: 10px;
-
-  /* display: none; */
 }
 
 #trash-can-icon:hover {
@@ -61,6 +69,13 @@ body {
   flex-direction: column;
   align-items: center;
   gap: 10px;
+  -webkit-box-shadow: -8px 10px 20px 8px rgba(158, 158, 158, 1);
+  -moz-box-shadow: -8px 10px 20px 8px rgba(158, 158, 158, 1);
+  box-shadow: -8px 10px 20px 8px rgba(158, 158, 158, 1);
+
+  max-height: 70%;
+  overflow: scroll;
+  overflow-x: hidden;
 }
 
 #settings::before {
@@ -82,6 +97,29 @@ body {
   display: grid;
   grid-template-columns: 35px 225px 50px;
   align-items: center;
+}
+
+.setting2 {
+  display: grid;
+  grid-template-columns: 35px 125px 150px;
+  align-items: center;
+}
+
+.setting2>img {
+  width: 20px;
+}
+
+.setting-header {
+  display: grid;
+  grid-template-columns: 310px;
+  align-items: center;
+}
+
+.setting-header>* {
+  text-align: center;
+  font-weight: bold;
+  border-top: 3px solid rgb(220, 220, 220);
+  padding-top: 3px;
 }
 
 .settings-btn {

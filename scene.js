@@ -45,7 +45,14 @@ class Scene {
 
         this.pointCloud = new PointCloud();
         this.pointCloud.genRandPoints();
-        this.quadrangleCut = new QuadrangleCut(this.pointCloud, QuadrangleCut.Type.Optimal);
+
+        this.options = {
+            standart: false,
+            heuristic_method: false,
+            numerical_method: true
+        }
+
+        this.quadrangleCut = new QuadrangleCut(this.pointCloud, this.options);
 
         var stage = new Konva.Stage({
             container: 'viewport',
@@ -67,11 +74,10 @@ class Scene {
         convhull = ConvexHull.create(this.pointCloud.getPoints()).getPolygon();
         this.convexHullRepresentation.inner = this.setConvexHull(convhull, Color.green);
         this.setPointCloud(stage);
-        this.anglesLayer = new Konva.Layer();
+        this.metricsLayer = new Konva.Layer();
         this.shownAngles = [];
         this.setQuadrangleCutAngles(stage);
         this.setQuadrangleCut(stage);
-
         this.flapRepresentation = {
             firstLine: null,
             secondLine: null,
@@ -81,11 +87,17 @@ class Scene {
             }
         }
         this.setFlap();
+        this.distancesRepresentation = {
+            "quadrangle": [],
+            "flap": [],
+        };
+        this.setDistances();
 
         this.target = null;
+
     }
     updateCut(type) {
-        this.quadrangleCut.reloadCut(this.pointCloud, type);
+        this.quadrangleCut.reloadCut(this.pointCloud, this.options);
     }
     updateViewportSize() {
         const viewportSide = Math.min(window.innerWidth, window.innerHeight);
@@ -255,6 +267,7 @@ class Scene {
             "textAvgViewportWidth": 40,
             "textAvgViewportHeight": 10,
         };
+        this.textView = textView;
         return {
             'vertical': {
                 x: viewportPoint.x + this.viewportExtends.w * textView.tinyNormalOffset,
@@ -455,22 +468,23 @@ class Scene {
         if (this.target == null)
             return;
 
-        let targetCircle = this.quadrangleCutRepresentation.vertices[this.target] = e.target;
-        let firstLine = this.quadrangleCutRepresentation.lines[this.target];
-        let points = firstLine.points();
-        firstLine.points([points[0], points[1], targetCircle.x(), targetCircle.y()]);
+        const targetCircle = this.quadrangleCutRepresentation.vertices[this.target] = e.target;
+        const lines = this.quadrangleCutRepresentation.lines;
+        const firstLine = lines[this.target];
+        const firstLinePoints = firstLine.points();
+        const secondLine = lines[(this.target + 1) % lines.length];
+        const secondLinePoints = secondLine.points();
+        firstLine.points([firstLinePoints[0], firstLinePoints[1], targetCircle.x(), targetCircle.y()]);
         firstLine.draw();
-
-        let secondLine = this.quadrangleCutRepresentation.lines[(this.target + 1) % this.quadrangleCutRepresentation.lines.length];
-        points = secondLine.points();
-        secondLine.points([targetCircle.x(), targetCircle.y(), points[2], points[3]]);
+        secondLine.points([targetCircle.x(), targetCircle.y(), secondLinePoints[2], secondLinePoints[3]]);
         secondLine.draw();
 
-        this.updateQuadrangleCut(false);
+        this.updateQuadrangleCut();
         let lineColor = this.quadrangleCut.isValid() ? Color.green : Color.red;
         this.updateQuadrangleLines(lineColor);
         this.updateAngles();
         this.updateFlap(true, true);
+        this.updateVertexDistances(firstLine.points(), secondLine.points());
     }
 
     updateBackgroundGrid() {
@@ -558,7 +572,7 @@ class Scene {
             }
             this.setAngle(anglePoints[0], anglePoints[1], anglePoints[2]);
         }
-        stage.add(this.anglesLayer);
+        stage.add(this.metricsLayer);
     }
 
     setAngle(a, b, c) {
@@ -582,7 +596,7 @@ class Scene {
         angleTextParams.y = viewportAnchor.y;
         angleTextParams.visible = false;
         const text = new Konva.Text(angleTextParams);
-        this.anglesLayer.add(sector, text);
+        this.metricsLayer.add(sector, text);
         this.shownAngles.push({
             sector: sector,
             text: text
@@ -633,6 +647,7 @@ class Scene {
         this.updateAngles(isPointsCloudEditingModeEnabled);
         this.updatePointCloudDistances(isPointsCloudEditingModeEnabled);
         this.updateFlap(!isPointsCloudEditingModeEnabled, false);
+        this.updateDistances(!isPointsCloudEditingModeEnabled && this.settings["areMetricsShown"]);
     }
 
     updatePointCloudDistances(isPointsCloudEditingModeEnabled) {
@@ -645,15 +660,14 @@ class Scene {
     }
 
     onPointsCloudEditingModeToggling(isPointsCloudEditingModeEnabled, quadrangleType) {
-        this.updateQuadrangleCut(!isPointsCloudEditingModeEnabled,
-            isPointsCloudEditingModeEnabled, quadrangleType);
-        this.updateMetricsView(isPointsCloudEditingModeEnabled);
+        this.updateQuadrangleCut(isPointsCloudEditingModeEnabled, quadrangleType);
         this.convexHullRepresentation.outer.visible(!isPointsCloudEditingModeEnabled);
         this.convexHullRepresentation.inner.visible(!isPointsCloudEditingModeEnabled);
         this.updateFlap(!isPointsCloudEditingModeEnabled, true);
         if (!isPointsCloudEditingModeEnabled) {
             this.updateConvexHull();
         }
+        this.updateMetricsView(isPointsCloudEditingModeEnabled);
     }
 
     updatePointsCloud() {
@@ -667,22 +681,6 @@ class Scene {
             newPoints.push(normalCoords);
         }
         this.pointCloud.setPoints(newPoints);
-    }
-    setQuadrangleCutSidesLength() {
-        for (let item in this.quadrangleCutRepresentation) {
-            const lengthMetric = {
-                "startPoint": {
-                    x: item.line.points()[0],
-                    y: item.line.points()[1],
-                },
-                "endPoint": {
-                    x: item.line.points()[2],
-                    y: item.line.points()[3],
-                }
-            }
-            // TODO: show length metric for segment
-            // shown length metric must be invisible
-        }
     }
 
     updateConvexHull() {
@@ -720,7 +718,7 @@ class Scene {
         });
         this.flapRepresentation.angle.sector = this.shownAngles[0].sector.clone();
         this.flapRepresentation.angle.text = this.shownAngles[0].text.clone();
-        this.anglesLayer.add(
+        this.metricsLayer.add(
             this.flapRepresentation.firstLine, this.flapRepresentation.secondLine,
             this.flapRepresentation.angle.sector, this.flapRepresentation.angle.text
         );
@@ -731,6 +729,8 @@ class Scene {
         const color = normalPoints == null ? Color.red : Color.blue;
         this.flapRepresentation.firstLine.stroke(color);
         this.flapRepresentation.secondLine.stroke(color);
+        if (normalPoints == null)
+            return;
 
         const angle = new ViewportAngle(
             normalPoints[0],
@@ -779,7 +779,148 @@ class Scene {
             ]);
         }
 
-        this.anglesLayer.draw();
+        this.metricsLayer.draw();
+    }
+
+    setDistances() {
+        let vertices = this.quadrangleCut.getVertices().map(vertex => this.normalCoordinateToViewport(vertex));
+        for (let i = vertices.length - 1; i < 2 * vertices.length - 1; i++) {
+            const representation = this.setDistance(vertices[i % vertices.length], vertices[(i + 1) % vertices.length]);
+            this.distancesRepresentation.quadrangle.push(representation);
+        }
+        let points = this.flapRepresentation.firstLine.points();
+        let representation = this.setDistance({ x: points[0], y: points[1] }, { x: points[2], y: points[3] });
+        this.distancesRepresentation.flap.push(representation);
+        points = this.flapRepresentation.secondLine.points();
+        representation = this.setDistance({ x: points[0], y: points[1] }, { x: points[2], y: points[3] });
+        this.distancesRepresentation.flap.push(representation);
+        this.metricsLayer.draw();
+    }
+
+    setDistance(startPoint, endPoint) {
+        const data = this.buildDistanceData(startPoint, endPoint);
+        const arrowLine = new Konva.Arrow({
+            points: data.points,
+            fill: 'black',
+            stroke: 'black',
+            strokeWidth: 1,
+            pointerAtBeginning: true,
+            pointerAtEnding: true,
+            pointerLength: 10,
+            pointerWidth: 10,
+            visible: false,
+        });
+        const text = new Konva.Text({
+            x: data.textAnchor.x,
+            y: data.textAnchor.y,
+            text: data.textValue,
+            fontSize: 16,
+            fontStyle: 'bold',
+            fill: 'gray',
+            visible: false,
+        });
+        this.metricsLayer.add(arrowLine, text);
+        return {
+            "arrowLine": arrowLine,
+            "text": text,
+        };
+    }
+
+    buildDistanceData(startPoint, endPoint) {
+        const vector = { x: startPoint.y - endPoint.y, y: endPoint.x - startPoint.x };
+        const a = this.settings["quadrangleVerticesRadius"] * 2;
+        const d = Math.sqrt(vector.x * vector.x + vector.y * vector.y);
+        vector.x *= a / d;
+        vector.y *= a / d;
+        const points = [
+            startPoint.x + vector.x, startPoint.y + vector.y,
+            endPoint.x + vector.x, endPoint.y + vector.y
+        ];
+        const offset = 5;
+        const distance = Math.sqrt((points[2] - points[0]) * (points[2] - points[0]) + (points[3] - points[1]) * (points[3] - points[1]))
+            / this.viewportSide * this.settings["axisLength"];
+        return {
+            "points": points,
+            "textValue": `${distance.toFixed(1)} см`,
+            "textAnchor": {
+                x: (points[0] + points[2]) / 2 + (vector.x < 0 ? -offset - this.textView["textAvgViewportWidth"] : offset),
+                y: (points[1] + points[3]) / 2 + (vector.y < 0 ? -offset - this.textView["textAvgViewportHeight"] : offset)
+            }
+        }
+    }
+
+    updateDistances(areVisible) {
+        for (let i = 0; i < this.quadrangleCutRepresentation.lines.length; i++) {
+            const points = this.quadrangleCutRepresentation.lines[i].points();
+            const distance = this.distancesRepresentation.quadrangle[i];
+            distance.arrowLine.visible(areVisible);
+            distance.text.visible(areVisible);
+            this.updateDistance(
+                distance,
+                { x: points[0], y: points[1] },
+                { x: points[2], y: points[3] }
+            );
+        }
+        let points = this.flapRepresentation.firstLine.points();
+        let distance = this.distancesRepresentation.flap[0];
+        distance.arrowLine.visible(areVisible);
+        distance.text.visible(areVisible);
+        this.updateDistance(
+            distance,
+            { x: points[0], y: points[1] },
+            { x: points[2], y: points[3] }
+        );
+        points = this.flapRepresentation.secondLine.points();
+        distance = this.distancesRepresentation.flap[1];
+        distance.arrowLine.visible(areVisible);
+        distance.text.visible(areVisible);
+        this.updateDistance(
+            distance,
+            { x: points[0], y: points[1] },
+            { x: points[2], y: points[3] }
+        );
+        this.metricsLayer.draw();
+    }
+
+    updateVertexDistances(firstLinePoints, secondLinePoints) {
+        let distance = this.distancesRepresentation.quadrangle[this.target];
+        this.updateDistance(
+            distance,
+            { x: firstLinePoints[0], y: firstLinePoints[1] },
+            { x: firstLinePoints[2], y: firstLinePoints[3] }
+        );
+        const maxTarget = this.quadrangleCutRepresentation.lines.length;
+        distance = this.distancesRepresentation.quadrangle[(this.target + 1) % maxTarget];
+        this.updateDistance(
+            distance,
+            { x: secondLinePoints[0], y: secondLinePoints[1] },
+            { x: secondLinePoints[2], y: secondLinePoints[3] }
+        );
+
+        let points = this.flapRepresentation.firstLine.points();
+        distance = this.distancesRepresentation.flap[0];
+        this.updateDistance(
+            distance,
+            { x: points[0], y: points[1] },
+            { x: points[2], y: points[3] }
+        );
+        points = this.flapRepresentation.secondLine.points();
+        distance = this.distancesRepresentation.flap[1];
+        this.updateDistance(
+            distance,
+            { x: points[0], y: points[1] },
+            { x: points[2], y: points[3] }
+        );
+    }
+
+    updateDistance(distance, segmentStartPoint, segmentEndPoint) {
+        let data = this.buildDistanceData(segmentStartPoint, segmentEndPoint);
+        distance.arrowLine.points(data.points);
+        distance.arrowLine.draw();
+        distance.text.text(data.textValue);
+        distance.text.x(data.textAnchor.x);
+        distance.text.y(data.textAnchor.y);
+        distance.text.draw();
     }
 }
 
