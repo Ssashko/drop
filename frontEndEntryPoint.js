@@ -131,9 +131,13 @@ class QuadrangleCut {
     let convexhull = ConvexHull.create(pointCloud.getPoints()).getPolygon();
     convexhull.makeOffset(this.offset);
     this.task = new Task(convexhull, options, loader);
-
     await this.task.exec();
     this._vertices = this.task.getCut().getListVertices();
+    /*let vertices = Polygon.create(this.task.getCut().getListVertices());
+    vertices.makeOffset(this.offset)
+    this._vertices = vertices.getListVertices();*/
+
+    /*!!! ATTENTION !!! the cut`s shift breaks the condition of two equal sides */
   }
 
   getVertices() {
