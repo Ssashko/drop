@@ -1,3 +1,6 @@
+.control-el {
+	touch-action: none;
+}
 .custom-range{
 	position: relative;
 	width: 140px;
