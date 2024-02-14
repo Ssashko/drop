@@ -21,9 +21,7 @@ body {
 #settings-icon,
 #trash-can-icon,
 #build-min-quadrangle,
-#enable-editing-points-mode-btn,
-#disable-editing-points-mode-btn,
-#help-icon {
+#toggle-editing-points-mode-btn {
   position: absolute;
   top: 15px;
   width: 50px;
@@ -32,7 +30,6 @@ body {
   padding: 5px;
   border-radius: 10px;
   border: 1px solid black;
-  cursor: pointer;
 }
 
 #settings-icon {
@@ -43,13 +40,8 @@ body {
   right: calc(10px + 70px);
 }
 
-#enable-editing-points-mode-btn,
-#disable-editing-points-mode-btn {
+#toggle-editing-points-mode-btn {
   right: calc(10px + 2 * 70px);
-}
-
-#help-icon {
-  right: calc(10px + 3 * 70px);
 }
 
 #trash-can-icon {
