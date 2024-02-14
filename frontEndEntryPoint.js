@@ -7,7 +7,9 @@ const Color = {
   white: "#ffffff",
   black: "#000",
 };
+
 let lastCallback = null;
+
 function SetTerminateCallback(callback) {
   lastCallback = callback;
   document.getElementById("terminate-loader").onclick = (e) => {
@@ -15,7 +17,15 @@ function SetTerminateCallback(callback) {
     callback(e);
   };
 }
-class ParseParams {
+
+function calcDistance(point1, point2) {
+  return Math.sqrt(
+    (point1.x - point2.x) * (point1.x - point2.x)
+    + (point1.y - point2.y) * (point1.y - point2.y)
+  );
+}
+
+class QuadrangleBuildSettings {
   constructor() {
     this.restrictions = {
       rightAngle: getRangeById("right-angle-range").map(toRadians),
@@ -24,14 +34,23 @@ class ParseParams {
       topAngle: getRangeById("top-angle-range").map(toRadians),
       Yangle: getRangeById("yangle-angle-range").map(toRadians)
     }
-    this.numericalSpeedType = document.querySelector('input[name="numeric-method-type"]:checked').value == "fast-standart-numeric" ? "fast" : "standart";
-    this.numericalMethodStep = Number.parseFloat(document.getElementById("step-numerical-method").value);
-    this.numericalDeltoidMethodStep = Number.parseFloat(document.getElementById("step-deltoid-numeric").value);
-  }
-  static create() {
-    return new ParseParams();
+    this.useClassicRhombus = document.getElementById("classic-rhombus").checked;
+    this.useGeometricMethod = document.getElementById("geometric-method").checked;
+    this.numerical = {
+      directMethod: {
+        enabled: document.getElementById("numerical-method").checked,
+        step: Number.parseFloat(document.getElementById("step-numerical-method").value),
+        speedType: document.querySelector('input[name="numeric-method-type"]:checked').value == "fast-standard-numeric"
+          ? "fast" : "standard"
+      },
+      deltoidMethod: {
+        enabled: document.getElementById("deltoid-numeric").checked,
+        step: Number.parseFloat(document.getElementById("step-deltoid-numeric").value)
+      }
+    }
   }
 }
+
 class Loader {
   constructor() {
     this.status = 0;
@@ -127,17 +146,11 @@ class QuadrangleCut {
     this.offset = offset;
   }
 
-  async reloadCut(pointCloud, options) {
+  async reloadCut(pointCloud, settings) {
     let convexhull = ConvexHull.create(pointCloud.getPoints()).getPolygon();
-    convexhull.makeOffset(this.offset);
-    this.task = new Task(convexhull, options, loader);
+    this.task = new Task(convexhull, this.offset, settings, loader);
     await this.task.exec();
     this._vertices = this.task.getCut().getListVertices();
-    /*let vertices = Polygon.create(this.task.getCut().getListVertices());
-    vertices.makeOffset(this.offset)
-    this._vertices = vertices.getListVertices();*/
-
-    /*!!! ATTENTION !!! the cut`s shift breaks the condition of two equal sides */
   }
 
   getVertices() {
@@ -178,14 +191,6 @@ class QuadrangleCut {
       }
     }
     return true;
-  }
-
-  isPointInCircle(point, circle) {
-    const distance = Math.sqrt(
-      (point.x - circle.center.x) * (point.x - circle.center.x)
-      + (point.y - circle.center.y) * (point.y - circle.center.y)
-    );
-    return distance <= circle.normalOffset;
   }
 
   hasSelfIntersection() {
@@ -377,12 +382,10 @@ class Scene {
         };
       },
       unitsCoef() {
-        const rec = this.getNormalRectangle();
-        const p = this.toViewport(rec.left + 1, rec.top + 1);
         if (this.viewport.w / this.viewport.h >= this.normal.w / this.normal.h) {
-          return Math.abs(p.y);
+          return this.viewport.h / this.normal.h;
         }
-        return Math.abs(p.x);
+        return this.viewport.w / this.normal.w;
       }
     }
     this.textView = {
@@ -411,11 +414,12 @@ class Scene {
     this.quadrangleCut = new QuadrangleCut(this.normalOffset + 0.01);
     this.isHorizontalAxisSelected = false;
     this.hasBeenClickTouched = false;
+    this.pointHasBeenDeleted = false;
   }
 
   async constructorShard() {
     await this.quadrangleCut.reloadCut(this.pointsCloud,
-      Settings.InitialData["quadrangle-build-algorithms"]);
+      new QuadrangleBuildSettings());
     this.setKonvaInitialObjects();
     this.target = null;
   }
@@ -710,7 +714,6 @@ class Scene {
     viewport.addEventListener("touchstart", (e) => this.handleClickTouch(e));
     viewport.addEventListener("mousemove", (e) => this.onViewportMouseTouchMove(e));
     viewport.addEventListener("touchmove", (e) => this.onViewportMouseTouchMove(e));
-    document.getElementById("trash-can-icon").addEventListener("mouseup", (e) => this.deleteTargetPointCloud(e));
     viewport.addEventListener("mouseup", (e) => this.onViewportMouseUpTouchEnd(e));
     viewport.addEventListener("touchend", (e) => this.onViewportMouseUpTouchEnd(e));
   }
@@ -774,8 +777,8 @@ class Scene {
       viewportCoords.y = e.offsetY;
     }
     else if (e instanceof TouchEvent) {
-      viewportCoords.x = e.touches[0].offsetX;
-      viewportCoords.y = e.touches[0].offsetY;
+      viewportCoords.x = e.touches[0].clientX;
+      viewportCoords.y = e.touches[0].clientY;
     }
     else {
       console.log("Unexpected event", e);
@@ -829,6 +832,11 @@ class Scene {
   }
 
   onViewportMouseTouchMove(e) {
+    if (this.pointHasBeenDeleted) {
+      this.pointHasBeenDeleted = false;
+      return;
+    }
+
     if (!this.hasBeenClickTouched)
       return;
 
@@ -863,6 +871,25 @@ class Scene {
   }
 
   onViewportMouseUpTouchEnd(e) {
+    const newCoords = { x: undefined, y: undefined };
+    if (e instanceof TouchEvent) {
+      newCoords.x = e.changedTouches[0].pageX;
+      newCoords.y = e.changedTouches[0].pageY
+    }
+    else if (e instanceof MouseEvent) {
+      newCoords.x = e.pageX;
+      newCoords.x = e.pageY;
+    }
+    const isInsideTrashCan = (x, y) => {
+      const trashCan = document.getElementById("trash-can-icon");
+      return x > trashCan.x && x < trashCan.x + trashCan.width
+        && y > trashCan.y && y < trashCan.y + trashCan.height;
+    }
+    if (isInsideTrashCan(newCoords.x, newCoords.y)) {
+      this.deleteTargetPointCloud();
+      return;
+    }
+
     this.hasBeenClickTouched = false;
     this.isHorizontalAxisSelected = false;
     if (this.target == null || this.currentMode == Scene.Modes.QuadrangleEditing)
@@ -873,7 +900,7 @@ class Scene {
     this.target = null;
   }
 
-  deleteTargetPointCloud(e) {
+  deleteTargetPointCloud() {
     if (this.target == null)
       return;
 
@@ -884,6 +911,8 @@ class Scene {
     pointsCloud.splice(this.target, 1);
     this.pointsCloud.remove(this.target);
     this.target = null;
+    this.pointHasBeenDeleted = true;
+    this.hasBeenClickTouched = false;
     console.log("Point has been removed");
   }
 
@@ -1314,10 +1343,13 @@ class Scene {
 
   changeAxesLength(newValue) {
     this.settings['axis-length'] = newValue;
+    this.normalOffset = (this.axisData.vertical.viewportLength / this.settings["axis-length"])
+      / this.extends.unitsCoef() * 0.4;
     const axesLabels = this.konvaStrategy.changeableObjectsStorage.metrics.axesLabels;
     axesLabels.top.text(`${newValue.toFixed(0)} см`);
     axesLabels.right.text(`${newValue.toFixed(0)} см`);
     axesLabels.left.text(`${(newValue / 2).toFixed(0)} см`);
+    this.quadrangleCut.changeOffset();
     this.konvaStrategy.layers.background.draw();
   }
 
@@ -1413,11 +1445,11 @@ class Scene {
     this.konvaStrategy.layers.background.draw();
   }
 
-  async buildQuadrangle(buildingMethods) {
+  async buildQuadrangle(settings) {
     this.currentMode = Scene.Modes.QuadrangleEditing;
     this.toggleCursor();
     this.quadrangleCut = new QuadrangleCut(this.normalOffset + 0.01);
-    await this.quadrangleCut.reloadCut(this.pointsCloud, buildingMethods);
+    await this.quadrangleCut.reloadCut(this.pointsCloud, settings);
     const viewportVertices = this.quadrangleCut.getVertices().map(vertex => this.extends.toViewport(vertex.x, vertex.y));
     const viewportQuadrangle = this.konvaStrategy.changeableObjectsStorage.quadrangle;
     const viewportMetrics = this.konvaStrategy.changeableObjectsStorage.metrics;
@@ -1549,7 +1581,7 @@ class Settings {
         },
       },
       'axis-length': {
-        'value': 24,
+        'value': 18,
         onChange(e, scene) {
           let newValue = parseFloat(e.currentTarget.value);
           const onValidNewValue = () => {
@@ -1587,24 +1619,10 @@ class Settings {
         'htmlId': "build-min-quadrangle",
         async onClick(e, scene) {
           Settings.enableQuadrangleEditingMode();
-          const buildingMethods = {
-            standart: document.getElementById("classic-rhombus").checked,
-            heuristic_method: document.getElementById("geometric-method").checked,
-            numerical_method: document.getElementById("numerical-method").checked,
-            numerical_deltoid_method: document.getElementById("deltoid-numeric").checked,
-            params: ParseParams.create()
-          };
-          await scene.buildQuadrangle(buildingMethods);
+          await scene.buildQuadrangle(new QuadrangleBuildSettings());
         },
       },
-    ],
-    'quadrangle-build-algorithms': {
-      standart: true,
-      heuristic_method: true,
-      numerical_method: false,
-      numerical_deltoid_method: false,
-      params: ParseParams.create()
-    }
+    ]
   }
 
   static onInputChange(e, newValue, onValidNewValue) {
