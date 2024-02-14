@@ -47,7 +47,7 @@ class Scene {
         this.pointCloud.genRandPoints();
 
         this.options = {
-            standart: false,
+            standard: false,
             heuristic_method: false,
             numerical_method: true
         }
@@ -832,12 +832,18 @@ class Scene {
         const d = Math.sqrt(vector.x * vector.x + vector.y * vector.y);
         vector.x *= a / d;
         vector.y *= a / d;
-        const points = [
-            startPoint.x + vector.x, startPoint.y + vector.y,
-            endPoint.x + vector.x, endPoint.y + vector.y
-        ];
+        const segment = {
+            start: {
+                x: startPoint.x + vector.x,
+                y: startPoint.y + vector.y
+            },
+            end: {
+                x: endPoint.x + vector.x,
+                y: endPoint.y + vector.y
+            }
+        };
         const offset = 5;
-        const distance = Math.sqrt((points[2] - points[0]) * (points[2] - points[0]) + (points[3] - points[1]) * (points[3] - points[1]))
+        const distance = calcDistance(segment.start, segment.end)
             / this.viewportSide * this.settings["axisLength"];
         return {
             "points": points,

@@ -58,8 +58,10 @@ body {
   padding-bottom: 10px;
 }
 
-#trash-can-icon:hover {
-  filter: brightness(1.2);
+@media (hover: hover) {
+  #trash-can-icon:hover {
+    filter: brightness(1.2);
+  }
 }
 
 #settings {

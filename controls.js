@@ -54,7 +54,7 @@
     }
   }
 
-  settingsMenu.addEventListener("mouseenter", (e) => scene.showCursorDistances(false));
-  settingsIcon.addEventListener("mouseenter", (e) => scene.showCursorDistances(false));
-  document.getElementById("trash-can-icon").addEventListener("mouseenter", (e) => scene.showCursorDistances(false));
+  settingsMenu.addEventListener("pointerenter", (e) => scene.showCursorDistances(false));
+  settingsIcon.addEventListener("pointerenter", (e) => scene.showCursorDistances(false));
+  document.getElementById("trash-can-icon").addEventListener("pointerenter", (e) => scene.showCursorDistances(false));
 })();
