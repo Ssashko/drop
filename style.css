@@ -21,7 +21,8 @@ body {
 #settings-icon,
 #trash-can-icon,
 #build-min-quadrangle,
-#toggle-editing-points-mode-btn {
+#toggle-editing-points-mode-btn,
+#help-icon {
   position: absolute;
   top: 15px;
   width: 50px;
@@ -42,6 +43,10 @@ body {
 
 #toggle-editing-points-mode-btn {
   right: calc(10px + 2 * 70px);
+}
+
+#help-icon {
+  right: calc(10px + 3 * 70px);
 }
 
 #trash-can-icon {

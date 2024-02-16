@@ -146,9 +146,8 @@ class QuadrangleCut {
     this.offset = offset;
   }
 
-  async reloadCut(pointCloud, settings) {
-    let convexhull = ConvexHull.create(pointCloud.getPoints()).getPolygon();
-    this.task = new Task(convexhull, this.offset, settings, loader);
+  async reloadCut(roundedConvexHull, settings) {
+    this.task = new Task(roundedConvexHull, this.offset, settings, loader);
     await this.task.exec();
     this._vertices = this.task.getCut().getListVertices();
   }
@@ -159,38 +158,6 @@ class QuadrangleCut {
 
   moveVertex(index, newPoint) {
     this._vertices[index] = newPoint;
-  }
-
-  checkRoundedConvexHullInside(roundedConvexHull) {
-    const convexHullVertices = [];
-    for (const segment of roundedConvexHull.segments) {
-      convexHullVertices.push(segment.startPoint);
-      convexHullVertices.push(segment.endPoint);
-    }
-    for (const vertex of convexHullVertices)
-      if (!Polygon.create(this._vertices).pointIntersection(vertex))
-        return false;
-
-    for (const innerVertex of roundedConvexHull.innerConvexHullVertices) {
-      const circle = {
-        'center': innerVertex,
-        'radius': roundedConvexHull.normalOffset,
-      };
-      for (let i = 0; i < this._vertices.length; i++) {
-        const nextI = (i + 1) % this._vertices.length;
-        const segment = {
-          startPoint: this._vertices[i],
-          endPoint: this._vertices[nextI],
-        }
-        const distance = Math.abs((segment.endPoint.x - segment.startPoint.x) * (circle.center.y - segment.startPoint.y)
-          - (segment.endPoint.y - segment.startPoint.y) * (circle.center.x - segment.startPoint.x))
-          / Math.sqrt((segment.endPoint.x - segment.startPoint.x) * (segment.endPoint.x - segment.startPoint.x)
-            + (segment.endPoint.y - segment.startPoint.y) * (segment.endPoint.y - segment.startPoint.y));
-        if (distance < circle.radius)
-          return false;
-      }
-    }
-    return true;
   }
 
   hasSelfIntersection() {
@@ -269,7 +236,7 @@ class QuadrangleCut {
   }
 
   isValid(roundedConvexHull) {
-    return this.checkRoundedConvexHullInside(roundedConvexHull)
+    return isRoundedConvexHullInsideQuadrangle(this._vertices, roundedConvexHull)
       && !this.hasSelfIntersection();
   }
 }
@@ -409,17 +376,21 @@ class Scene {
         "start": this.extends.toViewport(-1 + this.axisNormalOffset, -1 + this.axisNormalOffset),
       },
     };
-    this.normalOffset = (this.axisData.vertical.viewportLength / this.settings["axis-length"])
-      / this.extends.unitsCoef() * 0.4;
-    this.quadrangleCut = new QuadrangleCut(this.normalOffset + 0.01);
+    const verticalAxisNormalLength = this.extends.normal.h - 2 * this.axisNormalOffset;
+    this.normalOffset = 0.4 * verticalAxisNormalLength / this.settings["axis-length"];
+    this.quadrangleCut = new QuadrangleCut(this.normalOffset);
     this.isHorizontalAxisSelected = false;
     this.hasBeenClickTouched = false;
     this.pointHasBeenDeleted = false;
   }
 
   async constructorShard() {
-    await this.quadrangleCut.reloadCut(this.pointsCloud,
-      new QuadrangleBuildSettings());
+    const innerConvexHull = ConvexHull.create(this.pointsCloud.getPoints()).getPolygon();
+    this.normalRoundedConvexHull = new RoundedConvexHull(innerConvexHull, this.normalOffset);
+    await this.quadrangleCut.reloadCut(
+      this.normalRoundedConvexHull,
+      new QuadrangleBuildSettings()
+    );
     this.setKonvaInitialObjects();
     this.target = null;
   }
@@ -714,6 +685,7 @@ class Scene {
     viewport.addEventListener("touchstart", (e) => this.handleClickTouch(e));
     viewport.addEventListener("mousemove", (e) => this.onViewportMouseTouchMove(e));
     viewport.addEventListener("touchmove", (e) => this.onViewportMouseTouchMove(e));
+    document.getElementById("trash-can-icon").addEventListener("mouseup", (e) => this.deleteTargetPointCloud(e));
     viewport.addEventListener("mouseup", (e) => this.onViewportMouseUpTouchEnd(e));
     viewport.addEventListener("touchend", (e) => this.onViewportMouseUpTouchEnd(e));
   }
@@ -886,7 +858,7 @@ class Scene {
         && y > trashCan.y && y < trashCan.y + trashCan.height;
     }
     if (isInsideTrashCan(newCoords.x, newCoords.y)) {
-      this.deleteTargetPointCloud();
+      this.deleteTargetPointCloud(e);
       return;
     }
 
@@ -900,7 +872,7 @@ class Scene {
     this.target = null;
   }
 
-  deleteTargetPointCloud() {
+  deleteTargetPointCloud(e) {
     if (this.target == null)
       return;
 
@@ -1343,8 +1315,8 @@ class Scene {
 
   changeAxesLength(newValue) {
     this.settings['axis-length'] = newValue;
-    this.normalOffset = (this.axisData.vertical.viewportLength / this.settings["axis-length"])
-      / this.extends.unitsCoef() * 0.4;
+    const verticalAxisNormalLength = this.extends.normal.h - 2 * this.axisNormalOffset;
+    this.normalOffset = 0.4 * verticalAxisNormalLength / this.settings["axis-length"];
     const axesLabels = this.konvaStrategy.changeableObjectsStorage.metrics.axesLabels;
     axesLabels.top.text(`${newValue.toFixed(0)} см`);
     axesLabels.right.text(`${newValue.toFixed(0)} см`);
@@ -1448,8 +1420,9 @@ class Scene {
   async buildQuadrangle(settings) {
     this.currentMode = Scene.Modes.QuadrangleEditing;
     this.toggleCursor();
-    this.quadrangleCut = new QuadrangleCut(this.normalOffset + 0.01);
-    await this.quadrangleCut.reloadCut(this.pointsCloud, settings);
+    this.updateConvexHull(true);
+    this.quadrangleCut = new QuadrangleCut(this.normalOffset);
+    await this.quadrangleCut.reloadCut(this.normalRoundedConvexHull, settings);
     const viewportVertices = this.quadrangleCut.getVertices().map(vertex => this.extends.toViewport(vertex.x, vertex.y));
     const viewportQuadrangle = this.konvaStrategy.changeableObjectsStorage.quadrangle;
     const viewportMetrics = this.konvaStrategy.changeableObjectsStorage.metrics;
@@ -1474,7 +1447,6 @@ class Scene {
       viewportMetrics.quadrangleLinesLength[current].text.y(lengthMetricData.textAnchor.y);
       viewportMetrics.quadrangleLinesLength[current].text.visible(true);
     }
-    this.updateConvexHull(true);
     this.updateAngles();
     this.updateFlap(true);
   }
